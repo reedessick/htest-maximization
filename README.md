@@ -37,12 +37,3 @@ We investigate a toy model in which the observed data is generated as the sum of
 
 Our toy model generates a set of i.i.d. data segments with sparse counts from this model and then applies the data selection procedure described in Guillot+(2019).
 The severity of biases introduced are measured with simple estimates of the posterior for the modulated signal light curve parameters (rather than the compactness, mass, and radius of a star).
-
----
-
-**TO DO**
-
-  * [ ] implement basic model for sinusoidal light curve
-  * [ ] implement htest statistic
-  * [ ] perform many trials of data selection and see if there is an effect
-    - quantify the size, particularly on the relative depth of the lightcurve
