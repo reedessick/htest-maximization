@@ -7,6 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import numpy as np
+from scipy.special import erf ### erf(z) = 2/sqrt(pi)*integral(exp(-t**2), t=0..z).
 
 import matplotlib
 matplotlib.use("Agg")
@@ -20,7 +21,7 @@ def compute_bayes(mean, count):
     """compute the bayes factor between a model that has a flat prior on the mean (restricted to be positive) and a model where the mean is zero
     B = exp(0.5*count*mean**2) * int_0^inf dm exp(-0.5*count*(m - mean)**2)
     """
-    raise NotImplementedError
+    return np.exp(0.5*count*mean**2) * 0.5*np.pi**0.5 * (erf(mean*(0.5*count)**0.5) + 1)
 
 def plot_ordered_bayes(bayes, counts=None, fig=None):
     """make a plot of how the bayes factor changes as we include more ordered data
