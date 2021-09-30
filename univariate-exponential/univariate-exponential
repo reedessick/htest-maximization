@@ -24,23 +24,51 @@ def compute_bayes(minx, count):
     """
     return (np.exp(count*minx) - 1.0) / count
 
-def plot_ordered_bayes(bayes, minxs, counts=None, truth=None):
+def plot_ordered_bayes(bayes, minxs, counts=None, truth=None, fig=None):
     """make a plot of how the bayes factor changes as we include more ordered data
     """
-    fig = plt.figure()
-    ax = plt.subplot(2,1,1)
-    AX = plt.subplot(2,1,2)
+    if fig is None:
+        fig = plt.figure()
+        ax = plt.subplot(2,1,1)
+        AX = plt.subplot(2,1,2)
+
+        ymin = -1
+        ymax = -1
+
+        YMIN = 0
+        YMAX = 0
+
+    else:
+        fig, ax, AX = fig
+        ymin, ymax = ax.get_ylim()
+        YMIN, YMAX = AX.get_ylim()
+
+    bayes = np.log10(bayes)
+
+    ymin = min(min(bayes), ymin)
+    ymax = max(max(bayes), ymax)
+
+    YMIN = min(min(minxs), YMIN)
+    YMAX = max(max(minxs), YMAX)
 
     if counts is None:
         counts = np.arange(len(bayes)) + 1
 
+    kwargs = dict(
+#        linestyle='none',
+        marker='.',
+        markersize=2,
+        alpha=0.25,
+        color='b',
+    )
+
     # plot bayes factors
-    ax.plot(counts, np.log10(bayes), linestyle='none', marker='.', markersize=2)
-    ax.set_ylim(ymin=-1.0)
+    ax.plot(counts, bayes, **kwargs)
+    ax.set_ylim(ymin=ymin, ymax=ymax)
 
     # plot minxs
-    AX.plot(counts, minxs, linestyle='none', marker='.', markersize=2) 
-    AX.set_ylim(ymin=-1.0)
+    AX.plot(counts, minxs, **kwargs)
+    AX.set_ylim(ymin=YMIN, ymax=YMAX)
 
     if truth is not None:
         AX.plot([counts[0], counts[-1]], [truth]*2, linestyle='dashed', color='grey')
@@ -65,7 +93,7 @@ def plot_ordered_bayes(bayes, minxs, counts=None, truth=None):
     )
 
     # return
-    return fig
+    return fig, ax, AX
 
 def plot_ratios(alldata, ordered):
     """make a plot of the distributions of these values and their ratio
@@ -241,6 +269,9 @@ ordered_counts = np.empty(args.num_trials, dtype=int)  ### the associated number
 if args.verbose:
     print('generating simulated data')
 
+if args.plot_individual_trials:
+    FIG = None
+
 for trial in range(args.num_trials):
     if args.Verbose:
         print('trial: %4d / %4d'%(trial+1, args.num_trials))
@@ -252,7 +283,7 @@ for trial in range(args.num_trials):
     data = args.true_shift - np.log(1.0 - np.random.random(size=args.num_observations))
     data = data[np.argsort(data)][::-1] # sort data (largest to smallest)
 
-    if args.verbose:
+    if args.Verbose:
         print('    computing detection statistic')
     minxs[:] = data[:]
     bayes[:] = compute_bayes(minxs, counts)
@@ -270,12 +301,46 @@ for trial in range(args.num_trials):
     if args.plot_individual_trials:
         if args.Verbose:
             print('    plotting detection statistic vs. number of ordered observations')
-        fig = plot_ordered_bayes(bayes, minxs, counts=counts, truth=args.true_shift)
+        fig, _, _ = plot_ordered_bayes(bayes, minxs, counts=counts, truth=args.true_shift)
         figname = os.path.join(args.output_dir, 'univariate-exponential%s-trial-%d.png'%(args.tag, trial))
         if args.Verbose:
             print('        saving: '+figname)
         fig.savefig(figname)
         plt.close(fig)
+
+        FIG = plot_ordered_bayes(bayes, minxs, counts=counts, truth=None, fig=FIG)
+
+if args.plot_individual_trials:
+    figname = os.path.join(args.output_dir, 'univariate-exponential%s-trials.png'%(args.tag))
+    if args.verbose:
+        print('saving: '+figname)
+    FIG = FIG[0]
+    FIG.savefig(figname)
+    plt.close(FIG)
+
+#------------------------
+
+### save data
+path = os.path.join(args.output_dir, 'univariate-exponential%s.csv.gz'%(args.tag))
+if args.verbose:
+    print('saving data to: '+path)
+data = np.transpose([
+    alldata_bayes,
+    alldata_minxs,
+    np.ones(args.num_trials)*args.num_observations,
+    ordered_bayes,
+    ordered_minxs,
+    ordered_counts,
+])
+header = ','.join([
+    'alldata_bayes',
+    'alldata_minxs',
+    'alldata_counts',
+    'ordered_bayes',
+    'ordered_minxs',
+    'ordered_counts',
+])
+np.savetxt(path, data, delimiter=',', comments='', header=header)
 
 #------------------------
 
