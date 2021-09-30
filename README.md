@@ -1,6 +1,6 @@
 # htest-maximization
 
-A simple toy model to examine the possible impact of selecting data segements based on the maximization of a detection statistic.
+A few simple toy models to examine the possible impact of selecting data segements based on the maximization of a detection statistic.
 
 In particular, we examine the procedure detailed in 
 
@@ -14,14 +14,31 @@ which searches for deviations for uniformity in phase-folded histograms by maxim
 
 ---
 
-## Toy model
+## Toy models
 
-We investigate a simple toy model in which the observed data is generated as the sum of
+### univariate-exponential
 
-  - background: a stationary poisson process that does not depend on phase
-  - foreground: a modulated poisson process for which the event rate depends on phase: dlambda/dphi != 0
+We investigate a simple toy model for the minimum value in a shifted exponential distribution.
+The presence of signals is denoted by a nonzero shift, and we consider including data incrementally from the largest to the smallest observed values.
 
-Our toy model generates a set of i.i.d. data segments with sparse counts from this model and then applies the data selection procedure described in Guillot+(2019). The severity of biases introduced are measured with simple estimates of the posterior for the modulated signal light curve parameters (rather than the compactness, mass, and radius of a star).
+We note that the H-test statistic is expected to be exponentially distributed.
+
+### univariate-gaussian
+
+We investigate a simple toy model of the mean of a Gaussian distribution.
+The presence of a signal is denoted by a mean that is greater than zero, and we consider including data incrementally from the largest to the smallest observed values.
+
+### poisson
+
+We investigate a toy model in which the observed data is generated as the sum of
+
+  - background: a stationary poisson process that does not depend on the rotation phase
+  - foreground: a modulated poisson process for which the event rate depends on the rotation phase: `dlambda/dphi != 0`
+
+Our toy model generates a set of i.i.d. data segments with sparse counts from this model and then applies the data selection procedure described in Guillot+(2019).
+The severity of biases introduced are measured with simple estimates of the posterior for the modulated signal light curve parameters (rather than the compactness, mass, and radius of a star).
+
+---
 
 **TO DO**
 
