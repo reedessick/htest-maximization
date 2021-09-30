@@ -16,19 +16,19 @@ which searches for deviations for uniformity in phase-folded histograms by maxim
 
 ## Toy models
 
-### univariate-exponential
+### [univariate-exponential](univariate-exponential)
 
 We investigate a simple toy model for the minimum value in a shifted exponential distribution.
 The presence of signals is denoted by a nonzero shift, and we consider including data incrementally from the largest to the smallest observed values.
 
 We note that the H-test statistic is expected to be exponentially distributed.
 
-### univariate-gaussian
+### [univariate-gaussian](univariate-gaussian)
 
 We investigate a simple toy model of the mean of a Gaussian distribution.
 The presence of a signal is denoted by a mean that is greater than zero, and we consider including data incrementally from the largest to the smallest observed values.
 
-### poisson
+### [poisson](poisson)
 
 We investigate a toy model in which the observed data is generated as the sum of
 
