@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+
+"""a simple script to build a toy model of bias introduced by data selection that maximizes a detection statistic
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import numpy as np
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+def compute_bayes(mean, count):
+    """compute the bayes factor between a model that has a flat prior on the mean (restricted to be positive) and a model where the mean is zero
+    B = exp(0.5*count*mean**2) * int_0^inf dm exp(-0.5*count*(m - mean)**2)
+    """
+    raise NotImplementedError
+
+def plot_ordered_bayes(bayes, counts=None, fig=None):
+    """make a plot of how the bayes factor changes as we include more ordered data
+    """
+    if fig is None:
+        fig = plt.figure()
+    ax = fig.gca()
+
+    if counts is None:
+        counts = np.arange(len(bayes)) + 1
+
+    ax.plot(counts, bayes)
+
+    ax.set_xlabel('number of data')
+    ax.set_ylabel('$\mathcal{B}^{\mu>0}_{\mu=0}$')
+
+    return fig
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('-m', '--true-mean', default=0.1, type=float)
+
+parser.add_argument('-n', '--num-observations', default=100, type=int)
+parser.add_argument('-N', '--num-trials', default=10, type=int)
+
+parser.add_argument('-p', '--plot-individual-trials', default=False, action='store_true')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('-s', '--seed', default=None, type=int)
+
+args = parser.parse_args()
+
+args.verbose |= args.Verbose
+
+#-------------------------------------------------
+
+if args.seed is not None:
+    if args.verbose:
+        print('setting numpy.random.seed=%d'%args.seed)
+    np.random.seed(args.seed)
+
+#-------------------------------------------------
+
+# set up arrays that track statistics
+bayes = np.empty(args.num_observations, dtype=float) ### re-used within loop
+means = np.empty(args.num_observations, dtype=float)
+counts = np.arange(args.num_observations) + 1
+
+alldata_bayes = np.empty(args.num_trials, dtype=float) ### the bayes factors obtained using all data
+
+ordered_bayes = np.empty(args.num_trials, dtype=float) ### the bayes factors maximized over data included
+ordered_means = np.empty(args.num_trials, dtype=float) ### the associated means
+ordered_counts = np.empty(args.num_trials, dtype=int)  ### the associated number of observations retained
+
+# iterating through trials
+if args.verbose:
+    print('generating simulated data')
+
+for trial in range(args.num_trials):
+    if args.Verbose:
+        print('trial: %d / %d'%(trial+1, args.num_trials))
+
+    # generate data
+    if args.Verbose:
+        print('    generating %d observations from Normal(%.3f, 1.)'%(args.num_observations, args.true_mean))
+    data = np.random.normal(loc=args.true_mean, scale=1., size=args.num_observations)
+    data = data[np.argsort(data)][::-1] # sort data (largest to smallest)
+
+    if args.verbose:
+        print('    computing detection statistic')
+    means[:] = np.cumsum(data) / counts
+    bayes[:] = compute_bayes(means, counts)
+
+    # store data
+    alldata_bayes[trail] = bayes[-1] ### when we include all data
+
+    ind = np.argmax(bayes) ### when we include ordered data up to maximum of detection statistic
+    ordered_bayes[trial] = bayes[ind]
+    ordered_means[trial] = means[ind]
+    ordered_counts[trial] = counts[ind]
+
+    if args.plot_individual_trials:
+        if args.Verbose:
+            print('    plotting detection statistic vs. number of ordered observations')
+        fig = plot_ordered_bayes(bayes, counts=counts)
+        figname = 'univariate-gaussian-trial-%d.png'%trial
+        if args.Verbose:
+            print('        saving: '+figname)
+        fig.savefig(figname)
+        plt.close(fig)
+
+#------------------------
+
+raise NotImplementedError('''\
+plot the distributions of alldata_bayes and ordered_bayes, also distribution of the ratio between them
+    -> should see that ordered_bayes is systematically shifted to higher values
+
+make some sort of bias plot? show the distribution of the MAP estimate when we
+  - include all data
+  - only include the data that maximizes the detection statistic
+''')
