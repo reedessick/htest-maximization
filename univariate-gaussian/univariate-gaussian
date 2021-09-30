@@ -6,6 +6,8 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 #-------------------------------------------------
 
+import os
+
 import numpy as np
 from scipy.special import erf ### erf(z) = 2/sqrt(pi)*integral(exp(-t**2), t=0..z).
 
@@ -23,21 +25,158 @@ def compute_bayes(mean, count):
     """
     return np.exp(0.5*count*mean**2) * 0.5*np.pi**0.5 * (erf(mean*(0.5*count)**0.5) + 1)
 
-def plot_ordered_bayes(bayes, counts=None, fig=None):
+def plot_ordered_bayes(bayes, means, counts=None, truth=None):
     """make a plot of how the bayes factor changes as we include more ordered data
     """
-    if fig is None:
-        fig = plt.figure()
-    ax = fig.gca()
+    fig = plt.figure()
+    ax = plt.subplot(2,1,1)
+    AX = plt.subplot(2,1,2)
 
     if counts is None:
         counts = np.arange(len(bayes)) + 1
 
-    ax.plot(counts, bayes)
+    # plot bayes factors
+    ax.plot(counts, np.log10(bayes), linestyle='none', marker='.', markersize=2)
+    ax.set_ylim(ymin=-1.0)
 
-    ax.set_xlabel('number of data')
-    ax.set_ylabel('$\mathcal{B}^{\mu>0}_{\mu=0}$')
+    # plot means
+    AX.plot(counts, means, linestyle='none', marker='.', markersize=2) 
+    AX.set_ylim(ymin=-1.0)
 
+    if truth is not None:
+        AX.plot([counts[0], counts[-1]], [truth]*2, linestyle='dashed', color='grey')
+
+    # decorate
+    ax.set_ylabel('$\log_{10} \mathcal{B}^{\mu>0}_{\mu=0}$')
+    AX.set_ylabel('cumulative mean')
+
+    plt.setp(ax.get_xticklabels(), visible=False)
+    AX.set_xlabel('number of data')
+
+    plt.subplots_adjust(
+        left=0.10,
+        right=0.95,
+        top=0.98,
+        bottom=0.10,
+        wspace=0.03,
+        hspace=0.03,
+    )
+
+    # return
+    return fig
+
+def plot_ratios(alldata, ordered):
+    """make a plot of the distributions of these values and their ratio
+    """
+    fig = plt.figure()
+
+    ax = plt.subplot(1,2,1)
+    AX = plt.subplot(1,2,2)
+
+    nbins = max(10, int(len(alldata)**0.5))
+    bins = np.linspace(np.log10(np.min([alldata, ordered])), np.log10(np.max([alldata, ordered])), nbins+1)
+
+    # plot the distributions of each set
+    ax.hist(np.log10(alldata), bins=bins, histtype='step', density=True, label='all data', color='b')
+    ax.hist(np.log10(ordered), bins=bins, histtype='step', density=True, label='maximized', color='r')
+
+    ax.set_xlabel('$\log_{10} \mathcal{B}^{\mu>0}_{\mu=0}$')
+    ax.set_yticks([])
+
+    # plot the ratios
+    AX.hist(np.log10(ordered) - np.log10(alldata), bins=nbins, histtype='step', density=True, color='m')
+
+    AX.set_xlabel('$\log_{10} \mathcal{B}_\mathrm{max} - \log_{10} \mathcal{B}_\mathrm{all}$')
+    AX.set_yticks([])
+
+    # decorate
+    plt.subplots_adjust(
+        left=0.05,
+        right=0.95,
+        top=0.98,
+        bottom=0.10,
+        wspace=0.03,
+        hspace=0.03,
+    )
+
+    ax.legend(loc='best')
+
+    # return
+    return fig
+
+def plot_estimators(alldata, ordered, truth=None):
+    """make a plot of the MLE estimators to look for biases
+    """
+    fig = plt.figure()
+
+    ax1 = plt.subplot(2,2,1)
+    ax2 = plt.subplot(2,2,3)
+    ax3 = plt.subplot(2,2,4)
+
+    nbins = max(10, int(len(alldata)**0.5))
+
+    # figure out bounds
+    min1 = np.min(alldata)
+    if truth is not None:
+        min1 = min(min1, truth)
+    max1 = np.max(alldata)
+    d = (max1-min1)*0.1
+    min1 -= d
+    max1 += d
+
+    min2 = np.min(ordered)
+    if truth is not None:
+        min2 = min(min2, truth)
+    max2 = np.max(ordered)
+    d = (max2 - min2)*0.1
+    min2 -= d
+    max2 += d
+
+    # make marginal distributions
+    ax1.hist(alldata, bins=np.linspace(min1, max1, nbins+1), density=True, histtype='step')
+    ax3.hist(ordered, bins=np.linspace(min2, max2, nbins+1), density=True, histtype='step', orientation='horizontal')
+
+    # make joint scatter plot
+    ax2.plot(alldata, ordered, linestyle='none', marker='.', alpha=0.10)
+
+    # decorate
+    ax1.set_xlim(xmin=min1, xmax=max1)
+    ax3.set_ylim(ymin=min2, ymax=max2)
+
+    if truth is not None:
+        ylim = ax1.get_ylim()
+        ax1.plot([truth]*2, ylim, color='grey', linestyle='dashed')
+        ax1.set_ylim(ylim)
+
+        xlim = ax3.get_xlim()
+        ax3.plot(xlim, [truth]*2, color='grey', linestyle='dashed')
+        ax3.set_xlim(xlim)
+
+        ax2.plot([truth]*2, [min2, max2], color='grey', linestyle='dashed')
+        ax2.plot([min1, max1], [truth]*2, color='grey', linestyle='dashed')
+
+    ax2.set_xlim(ax1.get_xlim())
+    ax2.set_ylim(ax3.get_ylim())
+
+    ax2.set_xlabel('$\hat{\mu}$ with all data')
+    ax2.set_ylabel('$\hat{\mu}$ with downselected data')
+
+    ax1.set_yticks([])
+    ax3.set_xticks([])
+
+    plt.setp(ax1.get_xticklabels(), visible=False)
+    plt.setp(ax3.get_yticklabels(), visible=False)
+
+    plt.subplots_adjust(
+        left=0.10,
+        right=0.95,
+        top=0.98,
+        bottom=0.10,
+        wspace=0.03,
+        hspace=0.03,
+    )
+
+    # return
     return fig
 
 #-------------------------------------------------
@@ -49,6 +188,8 @@ parser.add_argument('-m', '--true-mean', default=0.1, type=float)
 parser.add_argument('-n', '--num-observations', default=100, type=int)
 parser.add_argument('-N', '--num-trials', default=10, type=int)
 
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
 parser.add_argument('-p', '--plot-individual-trials', default=False, action='store_true')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -59,6 +200,13 @@ parser.add_argument('-s', '--seed', default=None, type=int)
 args = parser.parse_args()
 
 args.verbose |= args.Verbose
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
 
 #-------------------------------------------------
 
@@ -75,6 +223,7 @@ means = np.empty(args.num_observations, dtype=float)
 counts = np.arange(args.num_observations) + 1
 
 alldata_bayes = np.empty(args.num_trials, dtype=float) ### the bayes factors obtained using all data
+alldata_means = np.empty(args.num_trials, dtype=float) ### the associated means
 
 ordered_bayes = np.empty(args.num_trials, dtype=float) ### the bayes factors maximized over data included
 ordered_means = np.empty(args.num_trials, dtype=float) ### the associated means
@@ -86,7 +235,7 @@ if args.verbose:
 
 for trial in range(args.num_trials):
     if args.Verbose:
-        print('trial: %d / %d'%(trial+1, args.num_trials))
+        print('trial: %4d / %4d'%(trial+1, args.num_trials))
 
     # generate data
     if args.Verbose:
@@ -100,18 +249,20 @@ for trial in range(args.num_trials):
     bayes[:] = compute_bayes(means, counts)
 
     # store data
-    alldata_bayes[trail] = bayes[-1] ### when we include all data
+    alldata_bayes[trial] = bayes[-1] ### when we include all data
+    alldata_means[trial] = means[-1]
 
     ind = np.argmax(bayes) ### when we include ordered data up to maximum of detection statistic
     ordered_bayes[trial] = bayes[ind]
     ordered_means[trial] = means[ind]
     ordered_counts[trial] = counts[ind]
 
+    # plot if requested
     if args.plot_individual_trials:
         if args.Verbose:
             print('    plotting detection statistic vs. number of ordered observations')
-        fig = plot_ordered_bayes(bayes, counts=counts)
-        figname = 'univariate-gaussian-trial-%d.png'%trial
+        fig = plot_ordered_bayes(bayes, means, counts=counts, truth=args.true_mean)
+        figname = os.path.join(args.output_dir, 'univariate-gaussian%s-trial-%d.png'%(args.tag, trial))
         if args.Verbose:
             print('        saving: '+figname)
         fig.savefig(figname)
@@ -119,11 +270,30 @@ for trial in range(args.num_trials):
 
 #------------------------
 
-raise NotImplementedError('''\
-plot the distributions of alldata_bayes and ordered_bayes, also distribution of the ratio between them
-    -> should see that ordered_bayes is systematically shifted to higher values
+# make general summary plots
+if args.verbose:
+    print('generating summary plots')
 
-make some sort of bias plot? show the distribution of the MAP estimate when we
-  - include all data
-  - only include the data that maximizes the detection statistic
-''')
+# ratios of bayes factors
+if args.verbose:
+    print('plotting Bayes factors')
+fig = plot_ratios(alldata_bayes, ordered_bayes)
+figname = os.path.join(args.output_dir, 'univariate-gaussian%s-bayes-ratio.png'%(args.tag))
+if args.verbose:
+    print('    saving: '+figname)
+fig.savefig(figname)
+plt.close(fig)
+
+### NOTE:
+###     does the difference in counts correlate with the increased bayes factor?
+###     maybe we want to investigate this further?
+
+# MAP (really MLE) values from included data
+if args.verbose:
+    print('plotting estimates of the distribution\'s mean')
+fig = plot_estimators(alldata_means, ordered_means, truth=args.true_mean)
+figname = os.path.join(args.output_dir, 'univariate-gaussian%s-mle-estimates.png'%(args.tag))
+if args.verbose:
+    print('    saving: '+figname)
+fig.savefig(figname)
+plt.close(fig)
