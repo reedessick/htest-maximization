@@ -52,6 +52,9 @@ def plot_ordered_bayes(bayes, minxs, counts=None, truth=None):
     plt.setp(ax.get_xticklabels(), visible=False)
     AX.set_xlabel('number of data')
 
+    for _ in [ax, AX]:
+        _.tick_params(direction='in')
+
     plt.subplots_adjust(
         left=0.15,
         right=0.95,
@@ -89,6 +92,9 @@ def plot_ratios(alldata, ordered):
     AX.set_yticks([])
 
     # decorate
+    for _ in [ax, AX]:
+        _.tick_params(direction='in')
+
     plt.subplots_adjust(
         left=0.05,
         right=0.95,
@@ -139,6 +145,9 @@ def plot_estimators(alldata, ordered, truth=None):
     ax2.plot(alldata, ordered, linestyle='none', marker='.', alpha=0.10)
 
     # decorate
+    for _ in [ax1, ax2, ax3]:
+        _.tick_params(direction='in')
+
     ax1.set_xlim(xmin=min1, xmax=max1)
     ax3.set_ylim(ymin=min2, ymax=max2)
 
