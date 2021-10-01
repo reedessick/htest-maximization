@@ -6,6 +6,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 import numpy as np
 
+from scipy.stats import poisson
 from scipy.special import gammaln
 
 #-------------------------------------------------
@@ -22,25 +23,37 @@ class XrayProcess(object):
     """
 
     def __init__(self, mean, *ac_components):
-        self.mean = mean
-        self.ac_components = list(ac_components)
-        self._check() ### check that the differential rate is always positive
 
-    def _check(self):
-        raise NotImplementedError('''\
+        raise NotImplementedError('''compute a grid in phase and build _phase_pdf, phase_cdf, phase_grid for later interpolation
 sanity check the signal model to make sure the differential rate is always non-negative
 do this via brute-force by generating sampling that is much finer than the highest harmonic present and directly checking the model everywhere?
 ''')
 
-    def binned_mean(self, low, high):
-        """return the expected number of events in phases \in [low, high]
-        """
-        raise NotImplementedError('integrate this analytically. Or numerically using our "really fine" grid?')
+        self.mean = mean
+        self.ac_components = ac_components
 
-    def rvs(size=1):
-        """draw random variates from this model
+        self._check() ### check that the differential rate is always positive
+
+    def binned_mean(self, low, high):
+        """return the expected number of events with phases \in [low, high]
         """
-        raise NotImplementedError('draw samples from this analytically? Or compute CDF with finer spacing than the highest harmonic and then simply inverse-transform sample?')
+        raise NotImplementedError('integrate this analytically? Or numerically using our "really fine" grid?')
+
+
+
+
+
+
+    def draw(self):
+        """generate a realization of the Poisson process
+        """
+        num = poisson.rvs(self.mean) ### number of samples
+        return self.rvs(size=num) ### distribute these through phase
+
+    def rvs(self, size=1):
+        """draw random variates distributed through phase via inverse transform sampling
+        """
+        return np.interp(np.random.random(size=size), self._phase_cdf, self._phase_grid)
 
     def __add__(self, other):
         """return a new instance that combines the Poissonian processes
