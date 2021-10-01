@@ -24,25 +24,70 @@ class XrayProcess(object):
 
     def __init__(self, mean, *ac_components):
 
-        raise NotImplementedError('''compute a grid in phase and build _phase_pdf, phase_cdf, phase_grid for later interpolation
-sanity check the signal model to make sure the differential rate is always non-negative
-do this via brute-force by generating sampling that is much finer than the highest harmonic present and directly checking the model everywhere?
-''')
+        ### store the input for interpolator construction
+        self._mean = mean
+        self._ac_components = ac_components
 
-        self.mean = mean
-        self.ac_components = ac_components
+        self._phase_grid, self._phase_pdf, self._phase_cdf = self._init_interpolators(mean, *ac_components)
 
-        self._check() ### check that the differential rate is always positive
+    @staticmethod
+    def _init_interpolators(mean, *ac_components):
+        ### construct an interpolation grid
+        mmax = 0
+        for m, a, d in ac_components: ### figure out the maximum harmonic present
+            mmax = max(m, mmax)
+
+        num_grid = 1 + 100*(mmax+1) ### an approximate scaling of grid points
+                                   ### make sure we sample the curve well enough
+        phase_grid = np.linspace(0, 2*np.pi, num_grid)
+
+        ### construct the pdf and cdf
+        # start off with the DC component
+        phase_pdf = np.ones(num_grid, dtype=float) * mean/(2*np.pi)
+        phase_cdf = mean * phase_grid
+
+        for m, a, d in ac_components:
+            assert m > 0, 'harmonic numbers must be positive (specify DC terms through "mean")'
+            assert m%1==0, 'harmonic numbers must be integers!'
+            phase_pdf += a * np.cos(m*phase_grid + d)
+            phase_cdf += float(a)/m * (np.sin(m*phase_grid + d) - np.sin(d))
+
+        assert np.all(phase_pdf >= 0), 'differential poisson rate must be positive semi-definite!'
+        assert np.all(phase_cdf >= 0), 'phase CDF cannot be negative' ### probably redundant, but ok to check
+
+        ### normalize interpolators
+        phase_pdf /= phase_cdf[-1]
+        phase_cdf /= phase_cdf[-1]
+
+        # return
+        return phase_grid, phase_pdf, phase_cdf
+
+    @property
+    def mean(self):
+        return self._mean
+
+    @property
+    def ac_components(self):
+        return self._ac_components
+
+    @property
+    def phase_grid(self):
+        return self._phase_grid
+
+    @property
+    def phase_pdf(self):
+        return self._phase_pdf
+
+    @property
+    def phase_cdf(self):
+        return self._phase_cdf
 
     def binned_mean(self, low, high):
         """return the expected number of events with phases \in [low, high]
         """
-        raise NotImplementedError('integrate this analytically? Or numerically using our "really fine" grid?')
-
-
-
-
-
+        high = np.interp(high, self.phase_grid, self.phase_cdf)
+        low = np.interp(low, self.phase_grid, self.phase_cdf)
+        return self.mean * (high - low)
 
     def draw(self):
         """generate a realization of the Poisson process
@@ -53,7 +98,7 @@ do this via brute-force by generating sampling that is much finer than the highe
     def rvs(self, size=1):
         """draw random variates distributed through phase via inverse transform sampling
         """
-        return np.interp(np.random.random(size=size), self._phase_cdf, self._phase_grid)
+        return np.interp(np.random.random(size=size), self.phase_cdf, self.phase_grid)
 
     def __add__(self, other):
         """return a new instance that combines the Poissonian processes
