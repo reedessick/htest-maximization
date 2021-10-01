@@ -8,13 +8,26 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 
 import os
 
-import numpy as np
-
 from argparse import ArgumentParser
+
+### non-standard libraries
+
+import utils
 
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('--noise-mean', type=float, default=100.0,
+    help='the expected number of noise events per experiment')
+
+parser.add_argument('--signal-mean', type=float, default=10.0,
+    help='the expected number of signal events per experiment')
+
+parser.add_argument('-s', '--signal-component', nargs=3, type=float, action='append', default=[],
+    help='the harmonic, coefficient, and phase for a fourier component in the signal model. \
+This only sets the relative amplitude of different harmonics. The overall process will be normalized \
+to match --signal-mean. e.g. "--signal-component harmonic_number coefficient phase"')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
@@ -31,12 +44,16 @@ if args.tag:
 
 #-------------------------------------------------
 
-raise NotImplementedError('''\
-write:
-  - function to draw samples from noise distribution
-  - function to draw samples from signal distribution
-  - joint likelihood distribution
+# construct signal and background models
+noise = utils.XrayProcess(args.noise_mean)
+signal = utils.XrayProcess(args.signal_mean, *args.signal_component)
 
-loop over trials, generating data for each trial (many GTIs)
-write these to disk
+#-------------------------------------------------
+
+raise NotImplementedError('''\
+generate a bunch of different realizations
+For each realization
+    draw noise samples
+    draw signal samples
+    write both to disk (we can concatenate them later...)
 ''')
