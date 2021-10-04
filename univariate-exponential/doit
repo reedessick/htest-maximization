@@ -1,0 +1,12 @@
+#!/bin/bash
+
+n=20
+N=5000
+seed=123
+
+./univariate-exponential -v -n $n -N $N -p -m 0.0 -o m=0d0 -t m=0d0 --seed $seed
+./univariate-exponential -v -n $n -N $N -p -m 0.1 -o m=0d1 -t m=0d1 --seed $seed
+./univariate-exponential -v -n $n -N $N -p -m 0.3 -o m=0d3 -t m=0d3 --seed $seed
+./univariate-exponential -v -n $n -N $N -p -m 0.6 -o m=0d6 -t m=0d6 --seed $seed
+./univariate-exponential -v -n $n -N $N -p -m 1.0 -o m=1d0 -t m=1d0 --seed $seed
+./univariate-exponential -v -n $n -N $N -p -m 3.0 -o m=3d0 -t m=3d0 --seed $seed
