@@ -11,12 +11,25 @@ from scipy.special import gammaln
 
 #-------------------------------------------------
 
+### general helper functions
+
 def logfactorial(x):
     """natural logarithm of the factorial
     """
     return gammaln(x+1)
 
 #-------------------------------------------------
+
+### functions related to computing (and maximizing) the H-test statistic
+
+def htest_statistic(data):
+    """compute the H-test statistic for a set of observed phases
+    """
+    raise NotImplementedError
+
+#-------------------------------------------------
+
+### objects for generating synthetic data
 
 class XrayProcess(object):
     """a model for generating realizations of periodic Poissonian X-ray events
@@ -110,6 +123,8 @@ class XrayProcess(object):
         return XrayProcess(self.mean+other.mean, *(self.ac_components+other.ac_components))
 
 #------------------------
+
+### object representing likelihood of observing binned phases
 
 class Likelihood(object):
     """a model representing the Poisson likelihood for observations binned over phase
