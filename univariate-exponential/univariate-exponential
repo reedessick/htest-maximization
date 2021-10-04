@@ -100,7 +100,7 @@ def plot_ordered_bayes(bayes, minxs, counts=None, truth=None, fig=None):
     AX.set_ylim(ymin=YMIN, ymax=YMAX)
 
     if truth is not None:
-        AX.plot([counts[0], counts[-1]], [truth]*2, linestyle='dashed', color='grey')
+        AX.plot([counts[0], counts[-1]], [truth]*2, linestyle='dashed', color='grey', alpha=0.50)
 
     # decorate
     ax.set_ylabel('$\log_{10} \mathcal{B}^{m>0}_{m=0}$', fontsize=fontsize)
