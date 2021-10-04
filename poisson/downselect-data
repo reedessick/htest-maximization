@@ -16,6 +16,8 @@ from argparse import ArgumentParser
 
 parser = ArgumentParser(description=__doc__)
 
+parser.add_argument('hdf5', type=str)
+
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
@@ -31,4 +33,13 @@ if args.tag:
 
 #-------------------------------------------------
 
-raise NotImplementedError
+raise NotImplementedError('''\
+load data from hdf5
+order trials by their total number of counts (smallest first)
+iteratively compute H-test statistic as we include more and more data
+save to disk:
+    order of trials as included
+    H-test statistic computed for each subset of data
+
+downstream code can then pick up subsets of the data chosen based on the H-test stat vs which trials curve
+''')
