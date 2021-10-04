@@ -27,7 +27,6 @@ class XrayProcess(object):
         ### store the input for interpolator construction
         self._mean = mean
         self._ac_components = ac_components
-
         self._phase_grid, self._phase_pdf, self._phase_cdf = self._init_interpolators(mean, *ac_components)
 
     @staticmethod
@@ -42,8 +41,8 @@ class XrayProcess(object):
         phase_grid = np.linspace(0, 2*np.pi, num_grid)
 
         ### construct the pdf and cdf
-        # start off with the DC component
-        phase_pdf = np.ones(num_grid, dtype=float) * mean/(2*np.pi)
+        # instantiate the pdf and cdf using the DC component
+        phase_pdf = np.ones(num_grid, dtype=float) * mean
         phase_cdf = mean * phase_grid
 
         for m, a, d in ac_components:
@@ -65,6 +64,10 @@ class XrayProcess(object):
     @property
     def mean(self):
         return self._mean
+
+    @property
+    def mean_count(self):
+        return self._mean * 2*np.pi ### the average number of counts, not the mean differential rate
 
     @property
     def ac_components(self):
@@ -92,7 +95,7 @@ class XrayProcess(object):
     def draw(self):
         """generate a realization of the Poisson process
         """
-        num = poisson.rvs(self.mean) ### number of samples
+        num = poisson.rvs(self.mean_count) ### number of samples
         return self.rvs(size=num) ### distribute these through phase
 
     def rvs(self, size=1):

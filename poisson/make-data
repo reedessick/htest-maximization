@@ -12,6 +12,10 @@ import sys
 import numpy as np
 import h5py
 
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -21,19 +25,19 @@ import utils
 
 parser = ArgumentParser(description=__doc__)
 
-parser.add_argument('--noise-mean', type=float, default=100.0,
-    help='the expected number of noise events per experiment')
+parser.add_argument('-n', '--noise-mean-differential-rate', type=float, default=100.0,
+    help='the DC component of the noise model. The expected number of events is 2*pi*mean_differential_rate')
 
-parser.add_argument('--signal-mean', type=float, default=10.0,
-    help='the expected number of signal events per experiment')
+parser.add_argument('-s', '--signal-mean-differential-rate', type=float, default=10.0,
+    help='the DC component of the signal model. The expected number of events is 2*pi*mean_differential_rate')
 
-parser.add_argument('-s', '--periodic-signal-component', nargs=3, type=float, action='append', default=[],
+parser.add_argument('-c', '--periodic-signal-component', nargs=3, type=float, action='append', default=[],
     help='the harmonic, coefficient, and phase for a fourier component in the signal model. \
 This only sets the relative amplitude of different harmonics. The overall process will be normalized \
 to match --signal-mean. e.g. "--signal-component harmonic_number coefficient phase"')
 
 parser.add_argument('--seed', default=None, type=int)
-parser.add_argument('-n', '--num-trials', default=100, type=int,
+parser.add_argument('-N', '--num-trials', default=100, type=int,
     help='the number of trials to perform. Each trial will be written into a separate group within the overall HDF file')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -41,6 +45,9 @@ parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
+
+parser.add_argument('--histogram', default=False, action='store_true',
+    help='plot a histogram of cumulative signal and noise distributions as a sanity check')
 
 args = parser.parse_args()
 
@@ -65,11 +72,11 @@ if args.seed is not None:
 # construct signal and background models
 if args.verbose:
     print('instantiating noise model')
-noise = utils.XrayProcess(args.noise_mean)
+noise = utils.XrayProcess(args.noise_mean_differential_rate)
 
 if args.verbose:
     print('instantiating signal model')
-signal = utils.XrayProcess(args.signal_mean, *args.periodic_signal_component)
+signal = utils.XrayProcess(args.signal_mean_differential_rate, *args.periodic_signal_component)
 
 #-------------------------------------------------
 
@@ -78,13 +85,19 @@ if args.verbose:
     print('generating data for %d trials'%args.num_trials)
     print('writing: '+outpath)
 
+if args.histogram:
+    nbins = max(10, int(0.25*(args.num_trials*(noise.mean_count+signal.mean_count))**0.5))
+    p = np.linspace(0, 2*np.pi, nbins) ### compute cumulative histograms by hand
+    n = np.zeros_like(p, dtype=float)
+    s = np.zeros_like(p, dtype=float)
+
 with h5py.File(outpath, 'w') as obj:
 
     ### store basic attributes of experiment
     group = obj.create_group('parameters')
 
-    group.attrs.create('noise_mean', args.noise_mean)
-    group.attrs.create('signal_mean', args.signal_mean)
+    group.attrs.create('noise_mean_differential_rate', args.noise_mean_differential_rate)
+    group.attrs.create('signal_mean_differential_rate', args.signal_mean_differential_rate)
     group.attrs.create('num_trials', args.num_trials)
     group.attrs.create('seed', args.seed if args.seed is not None else 'None')
 
@@ -109,8 +122,76 @@ with h5py.File(outpath, 'w') as obj:
 
         grp = group.create_group(name)
         grp.create_dataset('noise', data=noise.draw())
-        grp.create_dataset('signa', data=signal.draw())
+        grp.create_dataset('signal', data=signal.draw())
+
+        if args.histogram: ### record cumulative histogram
+            for phase in grp['noise']:
+                n[p>=phase] += 1
+
+            for phase in grp['signal']:
+                s[p>=phase] += 1
 
 if args.Verbose:
     sys.stdout.write('\n')
     sys.stdout.flush()
+
+#------------------------
+
+if args.histogram:
+    if args.verbose:
+        print('plotting cumulative histogram')
+
+    fig = plt.figure(figsize=(6,8))
+    ax = plt.subplot(2,1,1)
+    AX = plt.subplot(2,1,2)
+
+    # plot cumulative histograms
+    ax.plot(noise.phase_grid, noise.phase_cdf*noise.mean_count*args.num_trials, color='c', alpha=0.5, label='noise')
+    ax.fill_between(p, np.zeros_like(p), n, color='b', alpha=0.25)
+
+    ax.plot(signal.phase_grid, signal.phase_cdf*signal.mean_count*args.num_trials, color='m', alpha=0.5, label='signal')
+    ax.fill_between(p, np.zeros_like(p), s, color='r', alpha=0.25)
+
+    # plot differential histograms
+    AX.plot(noise.phase_grid, noise.phase_pdf*noise.mean_count*args.num_trials, color='c', alpha=0.5, label='noise')
+    x = 0.5*(p[:-1]+p[1:])
+    y = np.diff(n) / (p[1]-p[0])
+    AX.fill_between(x, np.zeros_like(x), y, color='b', alpha=0.25)
+
+    AX.plot(signal.phase_grid, signal.phase_pdf*signal.mean_count*args.num_trials, color='m', alpha=0.5, label='signal')
+    y = np.diff(s) / (p[1]-p[0])
+    AX.fill_between(x, np.zeros_like(x), y, color='r', alpha=0.25)
+
+    # decorate
+    ax.legend(loc='upper left')
+
+    ax.tick_params(direction='in')
+
+    ax.set_xlim(xmin=0, xmax=2*np.pi)
+    ax.set_xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi])
+    plt.setp(ax.get_xticklabels(), visible=False)
+
+    AX.set_xlim(ax.get_xlim())
+    AX.set_xlabel('phase [rad]')
+    AX.set_xticks(ax.get_xticks())
+    AX.set_xticklabels(['$0$', '$\pi/2$', '$\pi$', '$3\pi/2$', '$2\pi$'])
+
+    ax.set_ylim(ymin=0)
+    ax.set_ylabel('cumulative count')
+
+    AX.set_ylim(ymin=0)
+    AX.set_ylabel('differential count')
+
+    plt.subplots_adjust(
+        left=0.20,
+        right=0.98,
+        bottom=0.10,
+        top = 0.98,
+        hspace=0.05,
+    )
+
+    figname = os.path.join(args.output_dir, 'make-data%s.png'%args.tag)
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+    plt.close(fig)
