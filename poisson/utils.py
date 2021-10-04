@@ -37,7 +37,7 @@ class XrayProcess(object):
         for m, a, d in ac_components: ### figure out the maximum harmonic present
             mmax = max(m, mmax)
 
-        num_grid = 1 + 100*(mmax+1) ### an approximate scaling of grid points
+        num_grid = 1 + 100*int(mmax+1) ### an approximate scaling of grid points
                                    ### make sure we sample the curve well enough
         phase_grid = np.linspace(0, 2*np.pi, num_grid)
 

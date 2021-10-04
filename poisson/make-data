@@ -7,11 +7,14 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import os
+import sys
+
+import numpy as np
+import h5py
 
 from argparse import ArgumentParser
 
 ### non-standard libraries
-
 import utils
 
 #-------------------------------------------------
@@ -24,18 +27,26 @@ parser.add_argument('--noise-mean', type=float, default=100.0,
 parser.add_argument('--signal-mean', type=float, default=10.0,
     help='the expected number of signal events per experiment')
 
-parser.add_argument('-s', '--signal-component', nargs=3, type=float, action='append', default=[],
+parser.add_argument('-s', '--periodic-signal-component', nargs=3, type=float, action='append', default=[],
     help='the harmonic, coefficient, and phase for a fourier component in the signal model. \
 This only sets the relative amplitude of different harmonics. The overall process will be normalized \
 to match --signal-mean. e.g. "--signal-component harmonic_number coefficient phase"')
 
+parser.add_argument('--seed', default=None, type=int)
+parser.add_argument('-n', '--num-trials', default=100, type=int,
+    help='the number of trials to perform. Each trial will be written into a separate group within the overall HDF file')
+
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
 
 args = parser.parse_args()
 
+args.verbose |= args.Verbose
+
+args.output_dir = os.path.abspath(args.output_dir)
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
 
@@ -44,16 +55,62 @@ if args.tag:
 
 #-------------------------------------------------
 
-# construct signal and background models
-noise = utils.XrayProcess(args.noise_mean)
-signal = utils.XrayProcess(args.signal_mean, *args.signal_component)
+if args.seed is not None:
+    if args.verbose:
+        print('setting numpy.random.seed=%d'%args.seed)
+    np.random.seed(args.seed)
 
 #-------------------------------------------------
 
-raise NotImplementedError('''\
-generate a bunch of different realizations
-For each realization
-    draw noise samples
-    draw signal samples
-    write both to disk (we can concatenate them later...)
-''')
+# construct signal and background models
+if args.verbose:
+    print('instantiating noise model')
+noise = utils.XrayProcess(args.noise_mean)
+
+if args.verbose:
+    print('instantiating signal model')
+signal = utils.XrayProcess(args.signal_mean, *args.periodic_signal_component)
+
+#-------------------------------------------------
+
+outpath = os.path.join(args.output_dir, 'make-data%s.hdf5'%args.tag)
+if args.verbose:
+    print('generating data for %d trials'%args.num_trials)
+    print('writing: '+outpath)
+
+with h5py.File(outpath, 'w') as obj:
+
+    ### store basic attributes of experiment
+    group = obj.create_group('parameters')
+
+    group.attrs.create('noise_mean', args.noise_mean)
+    group.attrs.create('signal_mean', args.signal_mean)
+    group.attrs.create('num_trials', args.num_trials)
+    group.attrs.create('seed', args.seed if args.seed is not None else 'None')
+
+    ### store periodic signal components
+    periodic_signal_components = np.empty(
+        len(args.periodic_signal_component),
+        dtype=[('harmonic', float), ('amplitude', float), ('phase', float)],
+    )
+    for i, (m, a, d) in enumerate(args.periodic_signal_component):
+        periodic_signal_components[i] = m, a, d
+
+    group.create_dataset('periodic_signal_components', data=periodic_signal_components)
+
+    ### iterate over trials and generate data
+    group = obj.create_group('trials')
+
+    for trial in range(args.num_trials):
+        name = 'trial-%d'%trial
+        if args.Verbose:
+            sys.stdout.write('\r    creating: %s'%name)
+            sys.stdout.flush()
+
+        grp = group.create_group(name)
+        grp.create_dataset('noise', data=noise.draw())
+        grp.create_dataset('signa', data=signal.draw())
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
