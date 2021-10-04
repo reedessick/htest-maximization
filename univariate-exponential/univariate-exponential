@@ -27,17 +27,25 @@ from argparse import ArgumentParser
 
 #-------------------------------------------------
 
-def compute_bayes(minx, count):
+figsize = (4, 4)
+fontsize=12
+
+#-------------------------------------------------
+
+def compute_bayes(minx, count, M=10):
     """compute the bayes factor between a model that has a flat prior on the mean (restricted to be positive) and a model where the mean is zero
     B = (exp(count*min(x)) - 1)/count
     """
-    return (np.exp(count*minx) - 1.0) / count
+    minx = np.where(minx<M, minx, M)
+
+    return (np.exp(count*minx) - 1.0) / (count*M)
 
 def plot_ordered_bayes(bayes, minxs, counts=None, truth=None, fig=None):
     """make a plot of how the bayes factor changes as we include more ordered data
     """
+
     if fig is None:
-        fig = plt.figure()
+        fig = plt.figure(figsize=figsize)
         ax = plt.subplot(2,1,1)
         AX = plt.subplot(2,1,2)
 
@@ -95,15 +103,30 @@ def plot_ordered_bayes(bayes, minxs, counts=None, truth=None, fig=None):
         AX.plot([counts[0], counts[-1]], [truth]*2, linestyle='dashed', color='grey')
 
     # decorate
-    ax.set_ylabel('$\log_{10} \mathcal{B}^{\mu>0}_{\mu=0}$')
-    AX.set_ylabel('running minimum')
+    ax.set_ylabel('$\log_{10} \mathcal{B}^{m>0}_{m=0}$', fontsize=fontsize)
+    AX.set_ylabel('running\nminimum', fontsize=fontsize)
 
     plt.setp(ax.get_xticklabels(), visible=False)
-    AX.set_xlabel('number of data')
+    AX.set_xlabel('number of data', fontsize=fontsize)
 
     dx = (counts[-1] - counts[0])*0.02
     ax.set_xlim(xmin=counts[0]-dx, xmax=counts[-1]+dx)
     AX.set_xlim(ax.get_xlim())
+
+    # location of maximum
+    ind = np.argmax(bayes)
+    kwargs = dict(linestyle='solid', color='grey', alpha=0.50)
+
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+    ax.plot([xmin, xmax], [bayes[ind]]*2, **kwargs)
+    ax.plot([counts[ind]]*2, [ymin, bayes[ind]], **kwargs)
+
+    ymin, ymax = AX.get_ylim()
+    AX.plot([counts[ind]]*2, [ymin, ymax], **kwargs)
+    AX.plot([xmin, xmax], [minxs[ind]]*2, **kwargs)
+
+    # aesthetic things
 
     for _ in [ax, AX]:
         _.tick_params(direction='in')
@@ -327,10 +350,11 @@ for trial in range(args.num_trials):
         if args.Verbose:
             print('    plotting detection statistic vs. number of ordered observations')
         fig, _, _ = plot_ordered_bayes(bayes, minxs, counts=counts, truth=args.true_shift)
-        figname = os.path.join(args.output_dir, 'univariate-exponential%s-trial-%d.png'%(args.tag, trial))
-        if args.Verbose:
-            print('        saving: '+figname)
-        fig.savefig(figname)
+        for figtype in ['png', 'pdf']:
+            figname = os.path.join(args.output_dir, 'univariate-exponential%s-trial-%d.%s'%(args.tag, trial, figtype))
+            if args.Verbose:
+                print('        saving: '+figname)
+            fig.savefig(figname)
         plt.close(fig)
 
         FIG = plot_ordered_bayes(bayes, minxs, counts=counts, truth=None, fig=FIG)
