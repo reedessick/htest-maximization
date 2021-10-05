@@ -29,12 +29,12 @@ def htest_significance(stat):
     """
     return np.exp(-0.4*stat)
 
-def htest_statistic(data):
+def htest_statistic(data, mmin=1, mmax=20):
     """compute the H-test statistic for a set of observed phases. See Eqs 6, 7, and 11 of deJager+ (1989):
         https://ui.adsabs.harvard.edu/abs/1989A&A...221..180D
     return H-test statistic, corresponding number of harmonics
     """
-    m = np.arange(1, 21)
+    m = np.arange(mmin, mmax+1)
 
     # compute empirical trig moments
     coefs = np.array([empirical_trigonometric_moments(data, k) for k in m])

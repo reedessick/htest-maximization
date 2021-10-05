@@ -26,6 +26,9 @@ parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('hdf5', type=str)
 
+parser.add_argument('--min-m', default=1, type=int)
+parser.add_argument('--max-m', default=20, type=int)
+
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
@@ -82,7 +85,11 @@ for trial, (_, n, datum) in enumerate(trials):
     data[ind:ind+n] = datum[:] ### fill in more data
 
     ### compute H-test up to and including this datum
-    hstat['Hstat'][trial], hstat['optimal_harmonic'][trial] = utils.htest_statistic(data[:n])
+    hstat['Hstat'][trial], hstat['optimal_harmonic'][trial] = utils.htest_statistic(
+        data[:n],
+        mmin=args.min_m,
+        mmax=args.max_m,
+    )
 
     # increment start position of next datum
     ind += n
