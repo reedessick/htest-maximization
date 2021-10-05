@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### generate synthetic data realizations
-./make-data -N 1000 -n 10 -s 10 -c 2 5 1.5 -c 4 5 1.5 -v --histogram
+./make-data -N 1000 -n 10 -s 50 -c 2 25 1.5 -c 4 10 1.5 -v --histogram
 
 ### make basic plots summarizing the detection statistics and downselecting data
 ./downselect-data -v --trajectory make-data.hdf5
