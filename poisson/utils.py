@@ -37,10 +37,10 @@ def htest_statistic(data):
     m = np.arange(1, 21)
 
     # compute empirical trig moments
-    coefs = np.array([empirical_trigonmetric_moments(data, k) for k in m])
+    coefs = np.array([empirical_trigonometric_moments(data, k) for k in m])
 
     # compute Z^2_m via a cumulative sum
-    Z = 2*np.len(data) * np.cumsum(np.sum(coefs**2, axis=1))
+    Z = 2*len(data) * np.cumsum(np.sum(coefs**2, axis=1))
 
     # compute H
     H = Z - 4*m + 4

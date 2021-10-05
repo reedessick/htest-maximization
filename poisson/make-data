@@ -156,16 +156,25 @@ if args.histogram:
     AX.plot(noise.phase_grid, noise.phase_pdf*noise.mean_count*args.num_trials, color='c', alpha=0.5, label='noise')
     x = 0.5*(p[:-1]+p[1:])
     y = np.diff(n) / (p[1]-p[0])
-    AX.fill_between(x, np.zeros_like(x), y, color='b', alpha=0.25)
+    X = []
+    Y = []
+    for plow, phigh, y in zip(p[:-1], p[1:], y):
+        X += [plow, phigh]
+        Y += [y]*2
+    AX.fill_between(X, np.zeros_like(X), Y, color='b', alpha=0.25)
 
     AX.plot(signal.phase_grid, signal.phase_pdf*signal.mean_count*args.num_trials, color='m', alpha=0.5, label='signal')
     y = np.diff(s) / (p[1]-p[0])
-    AX.fill_between(x, np.zeros_like(x), y, color='r', alpha=0.25)
+    Y = []
+    for y in y:
+        Y += [y]*2
+    AX.fill_between(X, np.zeros_like(X), Y, color='r', alpha=0.25)
 
     # decorate
     ax.legend(loc='upper left')
 
     ax.tick_params(direction='in')
+    AX.tick_params(direction='in')
 
     ax.set_xlim(xmin=0, xmax=2*np.pi)
     ax.set_xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi])
@@ -190,6 +199,7 @@ if args.histogram:
         hspace=0.05,
     )
 
+    # save
     figname = os.path.join(args.output_dir, 'make-data%s.png'%args.tag)
     if args.verbose:
         print('saving: '+figname)

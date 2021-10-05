@@ -1,5 +1,10 @@
 #!/bin/bash
 
-./make-data       ### generate synthetic data realizations
-./downselect-data ### make basic plots summarizing the detection statistics and downselecting data
-./fit-data        ### actually fit the data and determine whether there are biases
+### generate synthetic data realizations
+./make-data -N 1000 -n 10 -s 10 -c 2 5 1.5 -c 4 5 1.5 -v --histogram
+
+### make basic plots summarizing the detection statistics and downselecting data
+./downselect-data -v --trajectory make-data.hdf5
+
+### actually fit the data and determine whether there are biases
+./fit-data -h
