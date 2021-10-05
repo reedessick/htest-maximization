@@ -9,8 +9,12 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 import os
 
 import numpy as np
+import h5py
 
 from argparse import ArgumentParser
+
+### non-standard libraries
+import utils
 
 #-------------------------------------------------
 
@@ -37,6 +41,8 @@ raise NotImplementedError('''\
 load data from hdf5
 order trials by their total number of counts (smallest first)
 iteratively compute H-test statistic as we include more and more data
+    utils.htest_statistic(data) --> utils.htest_significance (monotonic with the statistic)
+
 save to disk:
     order of trials as included
     H-test statistic computed for each subset of data
