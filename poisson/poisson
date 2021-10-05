@@ -10,7 +10,7 @@
 for seed in $(seq 1 100)
 do
     tag="seed-$seed"
-    outdir=$tag
+    outdir="output/$tag"
 
     echo "-------------------------"
     echo "    processing: $tag"
