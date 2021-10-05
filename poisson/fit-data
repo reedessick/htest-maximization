@@ -12,6 +12,9 @@ import numpy as np
 
 from argparse import ArgumentParser
 
+### non-standard libraries
+import utils
+
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
@@ -30,6 +33,7 @@ if args.tag:
     args.tag = "_"+args.tag
 
 #-------------------------------------------------
+
 
 raise NotImplementedError('''\
 make sure downselect-data spits out the same file format for samples that make-data does
