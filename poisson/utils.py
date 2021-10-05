@@ -141,7 +141,7 @@ class Likelihood(object):
 
     @property
     def mean(self):
-        return self.process.mean
+        return self.process.mean_count
 
     @property
     def binned_means(self):
@@ -159,3 +159,70 @@ class Likelihood(object):
         """the natural log of the probability of observing binned_data given our binning and our process
         """
         return -self.mean + np.sum(binned_data*np.log(self.binned_means) - logfactorial(binned_data))
+
+    @staticmethod
+    def mle(self, binned_data, M=1):
+        """compute the maximum likelihood estimate for the Poisson process with M harmonics based on the binned data
+        We solve for the parameters of a model described by:
+            lambda(phi) = lambda0 * ( 1 + sum_{m=1}^M ( a_m * cos(m*phi) + b_m * sin(m*phi) ) )
+        under the assumption that
+            a_m, b_m << 1 for all m
+        so that we can expand the likelihood as a quadratic function of (a_m, b_m)
+        """
+        ### first compute the mean rate
+        lambda0 = np.sum(binned_data) / (2*np.pi) ### this one is easy
+
+        ### construct a set of linear equations for the fourier coefficients
+
+        # holders for the matrix equation: coeffs = inv(matrix) * const
+        const = np.empty((2*M, 1), dtype=float)
+        matrix = np.empty((2*M, 2*M), dtype=float)
+
+        # set up convenient measures for bin edges
+        left = self.bins[:-1] ### lower bin edges
+        right = self.bins[1:] ### upper bin edges
+        dphi = right - left   ### size of each bin
+        dphi2 = dphi**2
+
+        # compute trig functions once
+        dsin = np.empty((M, self.nbins), dtype=float)
+        dcos = np.empty((M, self.nbins), dtype=float)
+        for m in range(1, M+1):
+            dsin[m, :] = np.sin(m*right) - np.sin(m*left)
+            dcos[m, :] = np.cos(m*right) - np.cos(m*left)
+
+        # the harmonics we include in the signal model
+        harmonics = np.arange(1, M+1)
+        inv_harmonics = 1./harmonics
+
+        # iterate over harmonics, filling in matrix elements
+        for m in harmonics:
+            mind = 2*m
+
+            # fill in the constant vector
+            const[mind, 0] = np.sum(binned_data * dsin[m] / dphi)   # for a_m
+            const[mind+1, 0] = np.sum(binned_data * dcos[m] / dphi) # for b_m
+
+            # fill in this row of the matrix
+            for n in harmonics:
+                nind = 2*n
+                # fill in row for a_m --> two columns corresponding to a_n and b_n
+                matrix[mind, nind] = inv_harmonics[n] * np.sum(binned_data / dphi2 * dsin[m] * dsin[n])
+                matrix[mind, nind+1] = - inv_harmonics[n] * np.sum(binned_data / dphi2 * dsin[m] * dcos[n])
+
+                # fill in row for b_m --> two columns corresponding to a_n and b_n
+                matrix[mind+1, nind] = inv_harmonics[n] * np.sum(binned_data / dphi2 * dcos[m] * dsin[n])
+                matrix[mind+1, nind+1] = - inv_harmonics[n] * np.sum(binned_data / dphi2 * dcos[m] * dcos[n])
+
+        # solve for the coefficients
+        coef = np.dot(np.linalg.inv(matrix), const)
+
+        # now, convert coefficients into "ac_component" parametrization:
+        #     lambda = lambda0 + sum_m ( a_m * cos(m*phi + d_m) )
+        coef = coef.reshape((M, 2))
+
+        a_m = np.sum(coef**2, axis=1)**0.5 ### amplitudes
+        d_m = np.arctan2(-coef[:,1]/a_m, coef[:,0]/a_m)
+
+        ### return parameters of MLE process
+        return lambda0, list(zip(harmonics, a_m, d_m))
