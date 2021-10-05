@@ -45,6 +45,7 @@ do
     ### actually fit the data and determine whether there are biases
 
     # fit all data
+    echo \
     ./fit-data \
         $all \
         --output-dir $outdir \
@@ -52,6 +53,7 @@ do
         --Verbose
 
     # fit the selected subset of data
+    echo \
     ./fit-data \
         $subset \
         --output-dir $outdir \
