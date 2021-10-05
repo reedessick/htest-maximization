@@ -180,7 +180,9 @@ if args.trajectory:
     ax.set_ylabel('H-test\nstatistic')
     Ax.set_ylabel('$Z^2$ statistic')
     aX.set_ylabel('optimal number\nof harmonics')
-    AX.set_ylabel('number of samples included')
+    AX.set_ylabel('number of\nsamples included')
+
+    AX.set_ylim(ymin=0)
 
     plt.subplots_adjust(
         left=0.20,
@@ -215,6 +217,15 @@ if args.trajectory:
     AX.plot([xmin, xmax], [hstat['cumulative_count'][ind]]*2, **kwargs)
     AX.plot([x[ind]]*2, [ymin, ymax], **kwargs)
     AX.set_ylim(ymin=ymin, ymax=ymax)
+
+    labels = []
+    for tick in AX.get_yticks():
+        if tick > 0:
+            exp = int(np.log10(tick))
+            labels.append(r'$%.1f \cdot 10^{%d}$'%(tick/10**exp, exp))
+        else:
+            labels.append('')
+    AX.set_yticklabels(labels)
 
     # save
     figname = os.path.join(args.output_dir, 'downselect-data%s.png'%args.tag)
