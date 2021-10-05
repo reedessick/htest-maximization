@@ -22,6 +22,9 @@ def logfactorial(x):
 
 ### functions related to computing (and maximizing) the H-test statistic
 
+'''
+# DEPRECATED in favor of (faster/lighter) implementation directly within downselect-data
+
 def htest_significance(stat):
     """compute the approximate significance of the H-test statistic. Based on Eq. 5 of deJager+ (2010):
         https://ui.adsabs.harvard.edu/abs/2010A&A...517L...9D
@@ -58,6 +61,7 @@ def empirical_trigonometric_moments(data, k):
     returns cosine_coefficient, sine_coefficient
     """
     return np.mean(np.cos(k*data)), np.mean(np.sin(k*data))
+'''
 
 #-------------------------------------------------
 
