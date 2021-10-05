@@ -7,6 +7,7 @@
 
 ### generate synthetic data realizations
 ./make-data \
+    --seed 12 \
     -N 1000 \
     -n 50.0 \
     -s 1.0 \
