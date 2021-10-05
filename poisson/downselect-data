@@ -29,6 +29,7 @@ parser.add_argument('-t', '--tag', default='', type=str)
 
 args = parser.parse_args()
 
+args.output_dir = os.path.abspath(args.output_dir)
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
 
@@ -37,12 +38,43 @@ if args.tag:
 
 #-------------------------------------------------
 
+# load data
+if args.verbose:
+    print('loading data from: '+args.hdf5)
+trials = []
+with h5py.File(args.hdf5, 'r') as obj:
+    group = obj['trials']
+    for trial in range(obj['parameters'].attrs['num_trials']):
+        name = 'trial-%d'%trial
+        data = np.concatenate((group[name]['noise'][:], group[name]['signal'][:]))
+        trials.append((name, len(data), data))
+
+if args.verbose:
+    print('found %d trials'%len(trials))
+
+#------------------------
+
+if args.verbose:
+    print('iteratively adding data to maximize H-test statistic')
+
+# first order trials by counts
+trials.sort(key=lambda x: x[1]) ### smallest counts first
+
 raise NotImplementedError('''\
-load data from hdf5
-order trials by their total number of counts (smallest first)
 iteratively compute H-test statistic as we include more and more data
     utils.htest_statistic(data) --> utils.htest_significance (monotonic with the statistic)
+    can I do this without repeatedly concatenating arrays?
+    can I allocate one big array, dump all observations into it, and then slice it as needed?
+        --> will this actually be faster?
+''')
 
+#------------------------
+
+outpath = os.path.join(args.output_dir, 'downselect-data%s.hdf5'%args.tag)
+if args.verbose:
+    print('writing: '+outpath)
+
+raise NotImplementedError('''\
 save to disk:
     order of trials as included
     H-test statistic computed for each subset of data

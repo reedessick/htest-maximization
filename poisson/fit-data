@@ -31,4 +31,12 @@ if args.tag:
 
 #-------------------------------------------------
 
-raise NotImplementedError
+raise NotImplementedError('''\
+compute a MLE fit for the signal parameters
+  --> estimate distribution from many different realizations and therefore the bias
+estimate fisher matrix for signal parameters?
+
+run a full MCMC and show that I get diagonal p-p plots?
+  --> too expensive?
+  --> would make a damned convincing argument
+''')
