@@ -25,4 +25,5 @@
 
 ### actually fit the data and determine whether there are biases
 ./fit-data \
-    -h
+    downselect-data.hdf5 \
+    -V

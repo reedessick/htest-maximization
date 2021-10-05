@@ -7,8 +7,10 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import os
+import sys
 
 import numpy as np
+import h5py
 
 from argparse import ArgumentParser
 
@@ -19,13 +21,19 @@ import utils
 
 parser = ArgumentParser(description=__doc__)
 
+parser.add_argument('hdf5', type=str)
+
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
 
 args = parser.parse_args()
 
+args.verbose |= args.Verbose
+
+args.output_dir = os.path.abspath(args.output_dir)
 if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
 
@@ -34,22 +42,46 @@ if args.tag:
 
 #-------------------------------------------------
 
+# load data
+if args.verbose:
+    print('loading data and parameters from: '+args.hdf5)
+trials = []
+other_trials = []
+with h5py.File(args.hdf5, 'r') as obj:
+    # load parameters
+    group = obj['parameters']
+    attrs = dict(group.attrs.items())
+    attrs['periodic_signal_components'] = group['periodic_signal_components'][:]
 
+    # load data
+    group = obj['trials']
+    for name in group.keys():
+        if args.Verbose:
+            sys.stdout.write('\r    loading: '+name)
+            sys.stdout.flush()
+        noise = group[name]['noise'][:]
+        signal = group[name]['signal'][:]
+        trials.append((name, len(noise)+len(signal), dict(noise=noise, signal=signal)))
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+
+Ntrials = len(trials)
+
+if args.verbose:
+    print('found %d / %d trials'%(Ntrials, attrs['num_trials']))
+
+#-------------------------------------------------
+
+# compute MLE estimate
 raise NotImplementedError('''\
-make sure downselect-data spits out the same file format for samples that make-data does
-
-
-
-compute a MLE fit for the signal parameters?
-  --> estimate distribution from many different realizations and therefore the bias
-estimate fisher matrix for signal parameters?
-
-### NOTE: I need to somehow write the selected subsets of data to disk within downselect-data (or at least which trials to pick up from the make-data output)
-  --> this will let me identify subsets of data in a simple way within this script
-
-run a full MCMC and show that I get diagonal p-p plots?
-  --> too expensive?
-  --> would make a damned convincing argument
-
-NOTE: we may want to support more general light-curve shapes within our mock-data generation. We can either specify these as long-winded sets of harmonics or we can just write code that will take in an arbirary (periodic) function of phi and use that.
+compute MLE fit for the signal parameters
+also estimate fisher information matrix?
 ''')
+
+#-------------------------------------------------
+
+# store MLE results alongside simulation parameters
+raise NotImplementedError('''\
+write everything to disk in a file format matching what we had before''')

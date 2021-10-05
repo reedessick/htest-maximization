@@ -18,9 +18,6 @@ from matplotlib import pyplot as plt
 
 from argparse import ArgumentParser
 
-### non-standard libraries
-import utils
-
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
@@ -64,9 +61,7 @@ with h5py.File(args.hdf5, 'r') as obj:
 
     # load data
     group = obj['trials']
-    Ntrials = obj['parameters'].attrs['num_trials']
-    for trial in range(Ntrials):
-        name = 'trial-%d'%trial
+    for name in group.keys():
         if args.Verbose:
             sys.stdout.write('\r    loading: '+name)
             sys.stdout.flush()
@@ -78,8 +73,10 @@ if args.Verbose:
     sys.stdout.write('\n')
     sys.stdout.flush()
 
+Ntrials = len(trials)
+
 if args.verbose:
-    print('found %d trials'%Ntrials)
+    print('found %d / %d trials'%(Ntrials, attrs['num_trials']))
 
 #------------------------
 
