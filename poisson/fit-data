@@ -32,9 +32,12 @@ if args.tag:
 #-------------------------------------------------
 
 raise NotImplementedError('''\
-compute a MLE fit for the signal parameters
+compute a MLE fit for the signal parameters?
   --> estimate distribution from many different realizations and therefore the bias
 estimate fisher matrix for signal parameters?
+
+### NOTE: I need to somehow write the selected subsets of data to disk within downselect-data (or at least which trials to pick up from the make-data output)
+  --> this will let me identify subsets of data in a simple way within this script
 
 run a full MCMC and show that I get diagonal p-p plots?
   --> too expensive?
