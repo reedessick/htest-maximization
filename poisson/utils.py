@@ -117,11 +117,11 @@ class XrayProcess(object):
 
 ### object representing likelihood of observing binned phases
 
-class Likelihood(object):
+class BinnedLikelihood(object):
     """a model representing the Poisson likelihood for observations binned over phase
     """
 
-    def __init__(self, process, bins):
+    def __init__(self, bins, process=None):
         self.process = process
         if isinstance(bins, int): ### generate this number of equally spaced bins
             bins = np.linspace(0, 2*np.pi, bins+1)
@@ -141,10 +141,14 @@ class Likelihood(object):
 
     @property
     def mean(self):
+        if self.process is None:
+            raise ValueError('must set a process!')
         return self.process.mean_count
 
     @property
     def binned_means(self):
+        if self.process is None:
+            raise ValueError('must set a process!')
         return np.array([self.process.binned_mean(bins[i], bins[i+1]) for i in range(self.nbins)])
 
     def bin(self, data):
@@ -160,7 +164,6 @@ class Likelihood(object):
         """
         return -self.mean + np.sum(binned_data*np.log(self.binned_means) - logfactorial(binned_data))
 
-    @staticmethod
     def mle(self, binned_data, M=1):
         """compute the maximum likelihood estimate for the Poisson process with M harmonics based on the binned data
         We solve for the parameters of a model described by:
@@ -178,6 +181,10 @@ class Likelihood(object):
         const = np.empty((2*M, 1), dtype=float)
         matrix = np.empty((2*M, 2*M), dtype=float)
 
+        # the harmonics we include in the signal model
+        harmonics = np.arange(1, M+1)
+        inv_harmonics = 1./harmonics
+
         # set up convenient measures for bin edges
         left = self.bins[:-1] ### lower bin edges
         right = self.bins[1:] ### upper bin edges
@@ -185,41 +192,38 @@ class Likelihood(object):
         dphi2 = dphi**2
 
         # compute trig functions once
-        dsin = np.empty((M, self.nbins), dtype=float)
-        dcos = np.empty((M, self.nbins), dtype=float)
-        for m in range(1, M+1):
-            dsin[m, :] = np.sin(m*right) - np.sin(m*left)
-            dcos[m, :] = np.cos(m*right) - np.cos(m*left)
-
-        # the harmonics we include in the signal model
-        harmonics = np.arange(1, M+1)
-        inv_harmonics = 1./harmonics
+        dsin = np.empty((M, self.nbins-1), dtype=float)
+        dcos = np.empty((M, self.nbins-1), dtype=float)
+        for m in harmonics:
+            dsin[m-1, :] = np.sin(m*right) - np.sin(m*left)
+            dcos[m-1, :] = np.cos(m*right) - np.cos(m*left)
 
         # iterate over harmonics, filling in matrix elements
         for m in harmonics:
-            mind = 2*m
+            mind = 2*(m-1)
 
             # fill in the constant vector
-            const[mind, 0] = np.sum(binned_data * dsin[m] / dphi)   # for a_m
-            const[mind+1, 0] = np.sum(binned_data * dcos[m] / dphi) # for b_m
+            const[mind, 0] = np.sum(binned_data * dsin[m-1] / dphi)   # for a_m
+            const[mind+1, 0] = np.sum(binned_data * dcos[m-1] / dphi) # for b_m
 
             # fill in this row of the matrix
             for n in harmonics:
-                nind = 2*n
+                nind = 2*(n-1)
+
                 # fill in row for a_m --> two columns corresponding to a_n and b_n
-                matrix[mind, nind] = inv_harmonics[n] * np.sum(binned_data / dphi2 * dsin[m] * dsin[n])
-                matrix[mind, nind+1] = - inv_harmonics[n] * np.sum(binned_data / dphi2 * dsin[m] * dcos[n])
+                matrix[mind, nind] = inv_harmonics[n-1] * np.sum(binned_data / dphi2 * dsin[m-1] * dsin[n-1])
+                matrix[mind, nind+1] = - inv_harmonics[n-1] * np.sum(binned_data / dphi2 * dsin[m-1] * dcos[n-1])
 
                 # fill in row for b_m --> two columns corresponding to a_n and b_n
-                matrix[mind+1, nind] = inv_harmonics[n] * np.sum(binned_data / dphi2 * dcos[m] * dsin[n])
-                matrix[mind+1, nind+1] = - inv_harmonics[n] * np.sum(binned_data / dphi2 * dcos[m] * dcos[n])
+                matrix[mind+1, nind] = inv_harmonics[n-1] * np.sum(binned_data / dphi2 * dcos[m-1] * dsin[n-1])
+                matrix[mind+1, nind+1] = - inv_harmonics[n-1] * np.sum(binned_data / dphi2 * dcos[m-1] * dcos[n-1])
 
         # solve for the coefficients
         coef = np.dot(np.linalg.inv(matrix), const)
 
         # now, convert coefficients into "ac_component" parametrization:
         #     lambda = lambda0 + sum_m ( a_m * cos(m*phi + d_m) )
-        coef = coef.reshape((M, 2))
+        coef = lambda0 * coef.reshape((M, 2))
 
         a_m = np.sum(coef**2, axis=1)**0.5 ### amplitudes
         d_m = np.arctan2(-coef[:,1]/a_m, coef[:,0]/a_m)

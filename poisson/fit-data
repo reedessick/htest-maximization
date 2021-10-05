@@ -23,6 +23,11 @@ parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('hdf5', type=str)
 
+parser.add_argument('-N', '--num-bins', default=32, type=int,
+    help='the number of bins to use when fitting light curves')
+parser.add_argument('-M', '--num-harmonics', default=10, type=int,
+    help='the number of harmonics to use when fitting light curves')
+
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
@@ -45,8 +50,8 @@ if args.tag:
 # load data
 if args.verbose:
     print('loading data and parameters from: '+args.hdf5)
-trials = []
-other_trials = []
+
+data = []
 with h5py.File(args.hdf5, 'r') as obj:
     # load parameters
     group = obj['parameters']
@@ -59,26 +64,36 @@ with h5py.File(args.hdf5, 'r') as obj:
         if args.Verbose:
             sys.stdout.write('\r    loading: '+name)
             sys.stdout.flush()
-        noise = group[name]['noise'][:]
-        signal = group[name]['signal'][:]
-        trials.append((name, len(noise)+len(signal), dict(noise=noise, signal=signal)))
+        data.append( group[name]['noise'][:] )
+        data.append( group[name]['signal'][:] )
 
 if args.Verbose:
     sys.stdout.write('\n')
     sys.stdout.flush()
 
-Ntrials = len(trials)
+data = np.concatenate(tuple(data)) # make this into a single array
 
 if args.verbose:
-    print('found %d / %d trials'%(Ntrials, attrs['num_trials']))
+    print('found %d data points'%len(data))
 
 #-------------------------------------------------
 
 # compute MLE estimate
-raise NotImplementedError('''\
-compute MLE fit for the signal parameters
-also estimate fisher information matrix?
-''')
+if args.verbose:
+    print('instantiating likelihood object')
+like = utils.BinnedLikelihood(args.num_bins)
+
+if args.verbose:
+    print('binning data')
+binned_data = like.bin(data)
+
+if args.verbose:
+    print('computing MLE XrayProcess with %d harmonics'%args.num_harmonics)
+lambda0, ac_components = like.mle(binned_data, M=args.num_harmonics)
+
+print('lambda0 = %.6e'%lambda0)
+for m, a, d in ac_components:
+    print('a_%d = %.6e\nd_%d = %.6e'%(m, a, m, d))
 
 #-------------------------------------------------
 
