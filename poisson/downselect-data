@@ -7,6 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import os
+import sys
 
 import numpy as np
 import h5py
@@ -30,6 +31,7 @@ parser.add_argument('--min-m', default=1, type=int)
 parser.add_argument('--max-m', default=20, type=int)
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
@@ -38,6 +40,8 @@ parser.add_argument('--trajectory', default=False, action='store_true',
     help='plot the H-test statistic as a function of the amount of data included')
 
 args = parser.parse_args()
+
+args.verbose |= args.Verbose
 
 args.output_dir = os.path.abspath(args.output_dir)
 if not os.path.exists(args.output_dir):
@@ -57,8 +61,15 @@ with h5py.File(args.hdf5, 'r') as obj:
     Ntrials = obj['parameters'].attrs['num_trials']
     for trial in range(Ntrials):
         name = 'trial-%d'%trial
+        if args.Verbose:
+            sys.stdout.write('\r    loading: '+name)
+            sys.stdout.flush()
         data = np.concatenate((group[name]['noise'][:], group[name]['signal'][:]))
         trials.append((trial, len(data), data))
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
 
 if args.verbose:
     print('found %d trials'%Ntrials)
@@ -80,19 +91,32 @@ hstat['cumulative_count'][:] = np.cumsum([_[1] for _ in trials])
 data = np.empty(hstat['cumulative_count'][-1], dtype=float)
 
 # now iterate over trials
-ind = 0
+start = 0
 for trial, (_, n, datum) in enumerate(trials):
-    data[ind:ind+n] = datum[:] ### fill in more data
+    if args.Verbose:
+        sys.stdout.write('\r    computing H-statistic including %d trials'%(trial+1))
+        sys.stdout.flush()
+
+    stop = start + n
+    data[start:stop] = datum[:] ### fill in more data
+
+    ### FIXME: we can do this more efficiently
+    ### generate cumulative counters for the empirical fourier moments. Then we can just add more data to that and only keep 2 scalars. This also means there will be much less memory needed
+    ### we then take the average, etc by hand to get the H-statistic
 
     ### compute H-test up to and including this datum
     hstat['Hstat'][trial], hstat['optimal_harmonic'][trial] = utils.htest_statistic(
-        data[:n],
+        data[:stop], ### make sure to include data cumulatively
         mmin=args.min_m,
         mmax=args.max_m,
     )
 
     # increment start position of next datum
-    ind += n
+    start = stop
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
 
 del trials ### forget this in an attempt to save memory
 
