@@ -20,51 +20,6 @@ def logfactorial(x):
 
 #-------------------------------------------------
 
-### functions related to computing (and maximizing) the H-test statistic
-
-'''
-# DEPRECATED in favor of (faster/lighter) implementation directly within downselect-data
-
-def htest_significance(stat):
-    """compute the approximate significance of the H-test statistic. Based on Eq. 5 of deJager+ (2010):
-        https://ui.adsabs.harvard.edu/abs/2010A&A...517L...9D
-    p(H>stat) = exp(-0.4*stat)
-    """
-    return np.exp(-0.4*stat)
-
-def htest_statistic(data, mmin=1, mmax=20):
-    """compute the H-test statistic for a set of observed phases. See Eqs 6, 7, and 11 of deJager+ (1989):
-        https://ui.adsabs.harvard.edu/abs/1989A&A...221..180D
-    return H-test statistic, corresponding number of harmonics
-    """
-    m = np.arange(mmin, mmax+1)
-
-    # compute empirical trig moments
-    coefs = np.array([empirical_trigonometric_moments(data, k) for k in m])
-
-    # compute Z^2_m via a cumulative sum
-    Z = 2*len(data) * np.cumsum(np.sum(coefs**2, axis=1))
-
-    # compute H
-    H = Z - 4*m + 4
-
-    # maximize
-    ind = np.argmax(H)
-
-    # return
-    return H[ind], m[ind]
-
-def empirical_trigonometric_moments(data, k):
-    """return the empirical trigonometric moments with harmonic k based on the phase data. See Eq 6 of deJager+ (1989):
-        https://ui.adsabs.harvard.edu/abs/1989A&A...221..180D
-    This is accomplished via Monte Carlo inner products between the data distribution and sinusoids.
-    returns cosine_coefficient, sine_coefficient
-    """
-    return np.mean(np.cos(k*data)), np.mean(np.sin(k*data))
-'''
-
-#-------------------------------------------------
-
 ### objects for generating synthetic data
 
 class XrayProcess(object):
