@@ -32,6 +32,10 @@ if args.tag:
 #-------------------------------------------------
 
 raise NotImplementedError('''\
+make sure downselect-data spits out the same file format for samples that make-data does
+
+
+
 compute a MLE fit for the signal parameters?
   --> estimate distribution from many different realizations and therefore the bias
 estimate fisher matrix for signal parameters?

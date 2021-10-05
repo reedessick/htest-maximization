@@ -64,8 +64,9 @@ with h5py.File(args.hdf5, 'r') as obj:
         if args.Verbose:
             sys.stdout.write('\r    loading: '+name)
             sys.stdout.flush()
-        data = np.concatenate((group[name]['noise'][:], group[name]['signal'][:]))
-        trials.append((trial, len(data), data))
+        noise = group[name]['noise'][:]
+        signal = group[name]['signal'][:]
+        trials.append((name, len(noise)+len(signal), dict(noise=noise, signal=signal)))
 
 if args.Verbose:
     sys.stdout.write('\n')
@@ -100,6 +101,8 @@ H = np.empty(len(harmonics), dtype=float) ### holder for H-stat before we maximi
 
 # now iterate over trials
 for trial, (_, n, datum) in enumerate(trials):
+    datum = np.concatenate((datum['noise'], datum['signal']))
+
     if args.Verbose:
         sys.stdout.write('\r    computing H-statistic including %d trials'%(trial+1))
         sys.stdout.flush()
@@ -128,11 +131,52 @@ if args.Verbose:
 
 #------------------------
 
+maxH_trial = np.argmax(hstat['Hstat'])
 outpath = os.path.join(args.output_dir, 'downselect-data%s.hdf5'%args.tag)
 if args.verbose:
-    print('writing: '+outpath)
+    print('selected %d / %d trials\nwriting: %s'%(maxH_trial+1, Ntrials, outpath))
+
+### NOTE:
+# the following file format does not perfectly match what is produced by make-data
+# (we drop the group called "parameters" that describes the set-up the simulation)
+# it does add a new dataset in a group called "statistics" describing the Htest maximization trajectories
+# It separates the trials into two sets:
+#   * "trials" is what is included within the Htest selection cut; this namespace matches make-data
+#   * "discarded_trials" contains the rest of the trials for later reference
+
 with h5py.File(outpath, 'w') as obj:
-    obj.create_dataset('hstatistics', data=hstat) 
+
+    ### store the statistics
+    group = obj.create_group('statistics')
+    group.create_dataset('htest', data=hstat)
+
+    ### iterate over trials that pass the selection cut
+    group = obj.create_group('trials')
+
+    for name, n, datum in trials[:maxH_trial+1]: ### record up to and including maxH_trial
+        if args.Verbose:
+            sys.stdout.write('\r    creating: %s'%name)
+            sys.stdout.flush()
+
+        grp = group.create_group(name)
+        grp.create_dataset('noise', data=datum['noise'])
+        grp.create_dataset('signal', data=datum['signal'])
+
+    ### iterate over the rest of the trials
+    group = obj.create_group('discarded_trials')
+
+    for name, n, datum in trials[maxH_trial+1:]: ### record the rest
+        if args.Verbose:
+            sys.stdout.write('\r    creating: %s'%name)
+            sys.stdout.flush()
+
+        grp = group.create_group(name)
+        grp.create_dataset('noise', data=datum['noise'])
+        grp.create_dataset('signal', data=datum['signal'])
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
 
 #-------------------------------------------------
 
@@ -193,29 +237,28 @@ if args.trajectory:
     )
 
     # add location of maxima
-    ind = np.argmax(hstat['Hstat'])
     kwargs = dict(linestyle='solid', color='grey', alpha=0.5)
 
     xmin, xmax = ax.get_xlim()
 
     ymin, ymax = ax.get_ylim()
-    ax.plot([xmin, xmax], [hstat['Hstat'][ind]]*2, **kwargs)
-    ax.plot([x[ind]]*2, [ymin, hstat['Hstat'][ind]], **kwargs)
+    ax.plot([xmin, xmax], [hstat['Hstat'][maxH_trial]]*2, **kwargs)
+    ax.plot([x[maxH_trial]]*2, [ymin, hstat['Hstat'][maxH_trial]], **kwargs)
     ax.set_ylim(ymin=ymin, ymax=ymax)
 
     ymin, ymax = Ax.get_ylim()
-    Ax.plot([xmin, xmax], [hstat['Z2'][ind]]*2, **kwargs)
-    Ax.plot([x[ind]]*2, [ymin, ymax], **kwargs)
+    Ax.plot([xmin, xmax], [hstat['Z2'][maxH_trial]]*2, **kwargs)
+    Ax.plot([x[maxH_trial]]*2, [ymin, ymax], **kwargs)
     Ax.set_ylim(ymin=ymin, ymax=ymax)
 
     ymin, ymax = aX.get_ylim()
-    aX.plot([xmin, xmax], [hstat['optimal_harmonic'][ind]]*2, **kwargs)
-    aX.plot([x[ind]]*2, [ymin, ymax], **kwargs)
+    aX.plot([xmin, xmax], [hstat['optimal_harmonic'][maxH_trial]]*2, **kwargs)
+    aX.plot([x[maxH_trial]]*2, [ymin, ymax], **kwargs)
     aX.set_ylim(ymin=ymin, ymax=ymax)
 
     ymin, ymax = AX.get_ylim()
-    AX.plot([xmin, xmax], [hstat['cumulative_count'][ind]]*2, **kwargs)
-    AX.plot([x[ind]]*2, [ymin, ymax], **kwargs)
+    AX.plot([xmin, xmax], [hstat['cumulative_count'][maxH_trial]]*2, **kwargs)
+    AX.plot([x[maxH_trial]]*2, [ymin, ymax], **kwargs)
     AX.set_ylim(ymin=ymin, ymax=ymax)
 
     labels = []
