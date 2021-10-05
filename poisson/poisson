@@ -1,10 +1,27 @@
 #!/bin/bash
 
+### a simple script to generate random realizations from the Poisson model and processes them with the H-test selection algorithm
+### Reed Essick (reed.essick@gmail.com)
+
+#-------------------------------------------------
+
 ### generate synthetic data realizations
-./make-data -N 1000 -n 50.0 -s 1.0 -c 1 0.3 0.0 -c 2 0.4 0.0 -c 4 0.3 0.75 -V --histogram
+./make-data \
+    -N 1000 \
+    -n 50.0 \
+    -s 1.0 \
+    -c 1 0.3 0.0 \
+    -c 2 0.5 0.0 \
+    -c 4 0.2 0.75 \
+    -V \
+    --histogram
 
 ### make basic plots summarizing the detection statistics and downselecting data
-./downselect-data -V --trajectory make-data.hdf5 # --min-m 2 --max-m 2
+./downselect-data \
+    make-data.hdf5 \
+    -V \
+    --trajectory 
 
 ### actually fit the data and determine whether there are biases
-./fit-data -h
+./fit-data \
+    -h
