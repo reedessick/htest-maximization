@@ -39,4 +39,6 @@ estimate fisher matrix for signal parameters?
 run a full MCMC and show that I get diagonal p-p plots?
   --> too expensive?
   --> would make a damned convincing argument
+
+NOTE: we may want to support more general light-curve shapes within our mock-data generation. We can either specify these as long-winded sets of harmonics or we can just write code that will take in an arbirary (periodic) function of phi and use that.
 ''')
