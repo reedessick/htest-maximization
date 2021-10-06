@@ -160,7 +160,7 @@ with h5py.File(outpath, 'w') as obj:
 
     ### iterate over trials that pass the selection cut
     if args.Verbose:
-        print('storing retained trials')
+        print('storing %d retained trials'%(maxH_trial+1))
 
     group = obj.create_group('trials')
 
@@ -179,7 +179,7 @@ with h5py.File(outpath, 'w') as obj:
 
     ### iterate over the rest of the trials
     if args.Verbose:
-        print('storing the remaining trials')
+        print('storing %s remaining trials'%(Ntrials - (maxH_trial+1)))
 
     group = obj.create_group('discarded_trials')
 

@@ -17,10 +17,11 @@ do
     echo "-------------------------"
 
     ### predict file names
-    all="${tag}/make-data_${tag}.hdf5"
-    subset="${tag}/downselect-data_${tag}.hdf5"
+    all="${outdir}/make-data_${tag}.hdf5"
+    subset="${outdir}/downselect-data_${tag}.hdf5"
 
     ### generate synthetic data realizations
+    echo \
     ./make-data \
         --output-dir $outdir \
         --tag $tag \
@@ -45,20 +46,22 @@ do
     ### actually fit the data and determine whether there are biases
 
     # fit all data
-    echo \
     ./fit-data \
         $all \
+        --harmonic 1 --harmonic 2 --harmonic 4 \
         --output-dir $outdir \
         --tag $tag-all \
-        --Verbose
+        --Verbose \
+        --histogram
 
     # fit the selected subset of data
-    echo \
     ./fit-data \
         $subset \
+        --harmonic 1 --harmonic 2 --harmonic 4 \
         --output-dir $outdir \
         --tag $tag-subset \
-        --Verbose
+        --Verbose \
+        --histogram
 
 done
 
