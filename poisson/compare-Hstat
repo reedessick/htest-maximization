@@ -47,17 +47,42 @@ if args.tag:
 #-------------------------------------------------
 
 # load data
+Nhdf5 = len(args.hdf5)
 
 if args.verbose:
-    print('loading detection statistic data from %d realizations'%len(args.hdf5))
+    print('loading detection statistic data from %d realizations'%Nhdf5)
 
-for path in args.hdf5:
+alldata = np.empty(
+    Nhdf5,
+    dtype=[('H', float), ('Z2', float), ('m', float), ('count', int), ('num_seg', int)],
+)
+subset = np.empty(
+    Nhdf5,
+    dtype=[('H', float), ('Z2', float), ('m', float), ('count', int), ('num_seg', int)],
+)
+
+for ind, path in enumerate(args.hdf5):
     if args.Verbose:
         sys.stdout.write('\r    loading: %s'%path)
         sys.stdout.flush()
 
+    # load statistics
     with h5py.File(path, 'r') as obj:
-        raise NotImplementedError('''load in data: detection statistics, etc''')
+        stat = obj['statistis']['htest'][:]
+
+    # extract parameters from the structured array
+    alldata['H'][ind] = stat['Hstat'][-1]
+    alldata['Z2'][ind] = stat['Z2'][-1]
+    alldata['m'][ind] = stat['optimal_harmonic'][-1]
+    alldata['count'][ind] = stat['cumulative_count'][-1]
+    alldata['num_seg'][ind] = len(stat)
+
+    maxH_ind = np.argmax(stat['Hstat'])
+    subset['H'][ind] = stat['Hstat'][maxH_ind]
+    subset['Z2'][ind] = stat['Z2'][maxH_ind]
+    subset['m'][ind] = stat['optimal_harmonic'][maxH_ind]
+    subset['count'][ind] = stat['cumulative_count'][maxH_ind]
+    subset['num_seg'][ind] = maxH_ind + 1
 
 if args.Verbose:
     sys.stdout.write('\n')
@@ -71,5 +96,10 @@ if args.verbose:
     print('plotting distributions of detection statistics')
 
 raise NotImplementedError('''\
-make a corner plot of the Htest statistic, Z^2, Ntrials, etc
+make a corner plot of 
+  * Htest statistic
+  * Z^2
+  * optimal number of harmonics
+  * Ntrials
+  * etc
 ''')
