@@ -140,6 +140,8 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
     true_params = np.array(true_params)
     mle_params = np.array(mle_params)
 
+    hist_kwargs = {'density':True}
+
     #--------------------
 
     if args.verbose:
@@ -150,18 +152,20 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
     if include_ntrials:
         corner.corner(
             mle_params[:,2:],
-            truths=true_params[0,2:], ### NOTE: assumes all realizations have same true parameters, may want to check this
+            truths=true_params[0,2:], ### NOTE: assumes all realizations have same true parameters
             labels=labels[2:],
             color=color,
+            hist_kwargs=hist_kwargs,
             fig=FIG,
         )
 
     else:
         corner.corner(
             mle_params[:,2:-1],
-            truths=true_params[0,2:-1], ### NOTE: assumes all realizations have same true parameters, may want to check this
+            truths=true_params[0,2:-1], ### NOTE: assumes all realizations have same true parameters
             labels=labels[2:-1],
             color=color,
+            hist_kwargs=hist_kwargs,
             fig=FIG,
         )
 
@@ -184,6 +188,7 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
          deviations[:,:-1],
          labels=labels,
          color=color,
+         hist_kwargs=hist_kwargs,
          fig=fig,
     )
 
