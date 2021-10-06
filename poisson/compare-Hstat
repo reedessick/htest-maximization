@@ -23,6 +23,10 @@ import corner
 
 #-------------------------------------------------
 
+FIGTYPES = ['png', 'pdf']
+
+#-------------------------------------------------
+
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('--hdf5', type=str, nargs='+', required=True)
@@ -68,7 +72,7 @@ for ind, path in enumerate(args.hdf5):
 
     # load statistics
     with h5py.File(path, 'r') as obj:
-        stat = obj['statistis']['htest'][:]
+        stat = obj['statistics']['htest'][:]
 
     # extract parameters from the structured array
     alldata['H'][ind] = stat['Hstat'][-1]
@@ -95,11 +99,76 @@ if args.Verbose:
 if args.verbose:
     print('plotting distributions of detection statistics')
 
-raise NotImplementedError('''\
-make a corner plot of 
-  * Htest statistic
-  * Z^2
-  * optimal number of harmonics
-  * Ntrials
-  * etc
-''')
+labels = [
+    '$H$',
+    '$Z^2$',
+    '$m$',
+    '$N_\mathrm{data}$',
+    '$N_\mathrm{seg}$',
+]
+
+#------------------------
+
+# make a plot of the detection statistics obtained when using all the data
+#   H, Z2, m
+if args.verbose:
+    print('plotting distributions when all data is used in each realization')
+
+fig = corner.corner(
+    np.transpose(np.vstack((alldata['H'], alldata['Z2'], alldata['m']))),
+    labels=labels[:3],
+    color='k',
+)
+
+for figtype in FIGTYPES:
+    figname = os.path.join(args.output_dir, 'compare-Hstat-all%s.%s'%(args.tag, figtype))
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+plt.close(fig)
+
+#------------------------
+
+# make a plot of the detection statistics and counts obtained when maximizing H-test
+#   H, Z2, m, Ndata, Nseg
+if args.verbose:
+    print('plotting distributions when only a subset of data in each realization is used')
+
+fig = corner.corner(
+    np.transpose(np.vstack((subset['H'], subset['Z2'], subset['m'], subset['count'], subset['num_seg']))),
+    labels=labels,
+    color='r',
+)
+
+for figtype in FIGTYPES:
+    figname = os.path.join(args.output_dir, 'compare-Hstat-subset%s.%s'%(args.tag, figtype))
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+plt.close(fig)
+
+#------------------------
+
+# make a plot of the differences between all data and maximized H-test
+#   H, Z2, m, Ndata, Nseg
+if args.verbose:
+    print('plotting distributions of differences between different data-selection procedures')
+
+fig = corner.corner(
+    np.transpose(np.vstack((
+        subset['H'] - alldata['H'],
+        subset['Z2'] - alldata['Z2'],
+        subset['m'] - alldata['m'],
+        subset['count'] - alldata['count'],
+        subset['num_seg'] - alldata['num_seg'],
+    ))),
+    labels=['$\Delta$'+_ for _ in labels],
+    color='r',
+)
+
+for figtype in FIGTYPES:
+    figname = os.path.join(args.output_dir, 'compare-Hstat%s.%s'%(args.tag, figtype))
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+plt.close(fig)

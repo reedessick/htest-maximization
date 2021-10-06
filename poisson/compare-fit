@@ -186,7 +186,7 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
 
     fig = corner.corner(
          deviations[:,:-1],
-         labels=labels,
+         labels=['$\Delta$'+_ for _ in labels],
          color=color,
          hist_kwargs=hist_kwargs,
          fig=fig,
