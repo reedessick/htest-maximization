@@ -76,8 +76,14 @@ echo "-------------------------"
 echo "summarizing experiments"
 
 #echo \
-./compare-realizations \
+./compare-fit \
     --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
     --subset-data-hdf5 ${basedir}/*/fit-data_*subset.hdf5 \
     --output-dir $basedir \
     --Verbose
+
+#echo \
+./compare-Htest \
+    --hdf5 ${basedir}/*/downselect-data*.hdf5 \
+    --output-dir $basedir \
+    --verbose

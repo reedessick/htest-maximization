@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+
+"""a script to compare the distribution of detection statistics under different data-selection algorithms
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+import sys
+
+import numpy as np
+import h5py
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+import corner
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('--hdf5', type=str, nargs='+', required=True)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+
+args.verbose |= args.Verbose
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+#-------------------------------------------------
+
+# load data
+
+if args.verbose:
+    print('loading detection statistic data from %d realizations'%len(args.hdf5))
+
+for path in args.hdf5:
+    if args.Verbose:
+        sys.stdout.write('\r    loading: %s'%path)
+        sys.stdout.flush()
+
+    with h5py.File(path, 'r') as obj:
+        raise NotImplementedError('''load in data: detection statistics, etc''')
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+
+#-------------------------------------------------
+
+# plot data
+
+if args.verbose:
+    print('plotting distributions of detection statistics')
+
+raise NotImplementedError('''\
+make a corner plot of the Htest statistic, Z^2, Ntrials, etc
+''')

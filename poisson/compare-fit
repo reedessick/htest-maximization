@@ -171,7 +171,7 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
 
     # save
     for figtype in FIGTYPES:
-        figname = os.path.join(args.output_dir, 'compare-realizations-%s%s.%s'%(label, args.tag, figtype))
+        figname = os.path.join(args.output_dir, 'compare-fit-%s%s.%s'%(label, args.tag, figtype))
         if args.verbose:
             print('saving: '+figname)
         FIG.savefig(figname)
@@ -197,7 +197,7 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
 
 # save
 for figtype in FIGTYPES:
-    figname = os.path.join(args.output_dir, 'compare-realizations%s.%s'%(args.tag, figtype))
+    figname = os.path.join(args.output_dir, 'compare-fit%s.%s'%(args.tag, figtype))
     if args.verbose:
         print('saving: '+figname)
     fig.savefig(figname)
