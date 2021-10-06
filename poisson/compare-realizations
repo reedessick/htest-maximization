@@ -7,6 +7,7 @@ __author__ = "Reed Essick (reed.essick@gmail.com)"
 #-------------------------------------------------
 
 import os
+import sys
 
 import numpy as np
 import h5py
@@ -17,22 +18,35 @@ from matplotlib import pyplot as plt
 
 from argparse import ArgumentParser
 
+### non-standard libraries
+import corner
+
 #-------------------------------------------------
 
 parser = ArgumentParser(description=__doc__)
 
-parser.add_argument('--hdf5-fits-with-all', type=str, nargs='+',
-    help='paths to HDF5 fit-data files that used all data in each realization')
+parser.add_argument('--all-data-hdf5', type=str, nargs='+', required=True,
+    help='paths to HDF5 fit-data files that used all data in each realization. \
+eg: "--all-data-hdf5 path [path ...]"')
 
-parser.add_argument('--hdf5-fits-with-subset', type=str, nargs='+',
-    help='paths to HDF fit-data files that used a subset of data in each realization')
+parser.add_argument('--subset-data-hdf5', type=str, nargs='+', required=True,
+    help='paths to HDF5 fit-data files that a subset of data in each realization. \
+eg: "--subset-data-hdf5 path [path ...]"')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
 
 args = parser.parse_args()
+
+datasets = [
+    ('all', args.all_data_hdf5),
+    ('subset', args.subset_data_hdf5),
+]
+
+args.verbose |= args.Verbose
 
 args.output_dir = os.path.abspath(args.output_dir)
 if not os.path.exists(args.output_dir):
@@ -43,4 +57,92 @@ if args.tag:
 
 #-------------------------------------------------
 
-raise NotImplementedError
+fig = None
+legend_loc = 0.75
+legend_dif = 0.10
+
+for ind, (label, paths) in enumerate(datasets):
+
+    # load data
+    if args.verbose:
+        print('loading %d paths for %s'%(len(paths), label))
+
+    true_params = []
+    mle_params = []
+
+    labels = ['approx logL', 'logL', 'Ntrials', 'lambda0']
+    harmonics = None
+
+    for path in paths:
+        if args.Verbose:
+            sys.stdout.write('\r    loading: %s'%path)
+            sys.stdout.flush()
+
+        with h5py.File(path, 'r') as obj:
+            # load true parameters
+            group = obj['parameters']
+
+            approx_loglike = group.attrs['approximate_loglikelihood(true_params)']
+            loglike = group.attrs['loglikelihood(true_params)']
+            ntrials = group.attrs['num_trials']
+            lambda0 = group.attrs['noise_mean_differential_rate'] + group.attrs['signal_mean_differential_rate']
+            ac_comp = group['periodic_signal_components'][:]            
+
+            datum = [approx_loglike, loglike, ntrials, lambda0]
+            for m, a, d in ac_comp:
+                datum += [a, d]
+
+            if harmonics is None: # define labels and harmonics
+                harmonics = [m for m, _, _ in ac_comp]
+                for m in harmonics:
+                    labels += ['a_%d'%m, 'd_%d'%m]
+            else: # make sure we have consistent harmonics
+                assert len(ac_comp)==len(harmonics), 'different numbers of harmonics!'
+                assert all([M==m for M, (m, _, _) in zip(harmonics, ac_comp)]), 'different harmonic ordering!'
+
+            true_params.append(datum)
+
+            # load mle parameters
+            group = obj['maximum-likelihood-estimate']
+
+            approx_loglike = group.attrs['approximate_loglikelihood(mle_params)']
+            loglike = group.attrs['loglikelihood(mle_params)']
+            ntrials = group.attrs['num_trials']
+            lambda0 = group.attrs['mean_differential_rate']
+            ac_comp = group['periodic_signal_components'][:]       
+
+            # make sure we have consistent harmonics
+            assert len(ac_comp)==len(harmonics), 'different numbers of harmonics!'
+            assert all([M==m for M, (m, _, _) in zip(harmonics, ac_comp)]), 'different harmonic ordering!'
+
+            datum = [approx_loglike, loglike, ntrials, lambda0]
+            for m, a, d in ac_comp:
+                datam += [a, d]
+
+            mle_params.append(datum)
+
+    if args.Verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    true_params = np.array(true_params)
+    mle_params = np.array(mle_params)
+
+    deviations = mle_params - true_params
+
+    # add to corner plot
+    fig = corner.corner(
+         deviations,
+         labels=labels,
+         fig=fig,
+    )
+
+    # add a legend
+    ax.text(legend_loc, legend_loc-ind*legend_dif, label, ha='right', va='top')
+
+# save
+figname = os.path.join(args.output_dir, 'compare-realizations%s.png'%args.tag)
+if args.verbose:
+    print('saving: '+figname)
+fig.savefig(figname)
+plt.close(fig)

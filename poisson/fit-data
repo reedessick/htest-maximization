@@ -173,7 +173,7 @@ with h5py.File(outpath, 'w') as obj:
     group.attrs.create('mean_differential_rate', lambda0)
     group.attrs.create('num_trials', Ntrials)
     group.attrs.create('loglikelihood(mle_params)', max_loglike)
-    group.attrs.create('approx_loglikelihood(mle_params)', max_approx_loglike)
+    group.attrs.create('approximate_loglikelihood(mle_params)', max_approx_loglike)
 
     periodic_signal_components = np.empty(
         len(ac_components),
