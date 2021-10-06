@@ -69,6 +69,11 @@ class XrayProcess(object):
     def mean(self):
         return self._mean
 
+    @mean.setter
+    def mean(self, new):
+        self._mean = new
+        self._phase_grid, self._phase_pdf, self._phase_cdf = self._init_interpolators(new, *self.ac_components)
+
     @property
     def mean_count(self):
         return self._mean * 2*np.pi ### the average number of counts, not the mean differential rate
@@ -76,6 +81,11 @@ class XrayProcess(object):
     @property
     def ac_components(self):
         return self._ac_components
+
+    @ac_components.setter
+    def ac_components(self, new):
+        self._ac_components = new
+        self._phase_grid, self._phase_pdf, self._phase_cdf = self._init_interpolators(self.mean, *new)
 
     @property
     def phase_grid(self):
@@ -95,6 +105,9 @@ class XrayProcess(object):
         high = np.interp(high, self.phase_grid, self.phase_cdf)
         low = np.interp(low, self.phase_grid, self.phase_cdf)
         return self.mean * (high - low)
+
+    def binned_mean_count(self, low, high):
+        return 2*np.pi*self.binned_mean(low, high)
 
     def draw(self):
         """generate a realization of the Poisson process
@@ -149,7 +162,7 @@ class BinnedLikelihood(object):
     def binned_means(self):
         if self.process is None:
             raise ValueError('must set a process!')
-        return np.array([self.process.binned_mean(self.bins[i], self.bins[i+1]) for i in range(self.nbins)])
+        return np.array([self.process.binned_mean_count(self.bins[i], self.bins[i+1]) for i in range(self.nbins)])
 
     def bin(self, data):
         """map data (an array of phases) into counts in each bin
@@ -169,9 +182,34 @@ class BinnedLikelihood(object):
         """
         # first compute an estimate using an approximate likelihood
         lambda0, ac_components = self.approximate_mle(binned_data, harmonics=harmonics)
+
+        return lambda0, ac_components
+
         raise NotImplementedError('''\
 take the linearized estimate and use it as the seed for a numeric maximization of logprob
 ''')
+
+    def approximate_prob(self, binned_data):
+        return np.exp(self.approximate_logprob(binned_data))
+
+    def approximate_logprob(self, binned_data):
+        """return the approximate logprob that assumes small signals
+        """
+        right = self.bins[1:]
+        left = self.bins[:-1]
+        dphi = right - left
+
+        # just the process mean part
+        logprob = -self.mean - np.sum(logfactorial(binned_data)) + np.sum(binned_data*np.log(self.process.mean*dphi))
+
+        # add the perturbation from ac components
+        eps = np.zeros(self.nbins, dtype=float)
+        for m, a, d in self.process.ac_components:
+            eps[:] += ((a/self.mean) / m) * (np.sin(m*right + d) - np.sin(m*left + d)) / dphi
+
+#        logprob += np.sum(binned_data * (eps - 0.5*eps**2)) ### expand log(1+eps) to second order
+
+        return logprob
 
     def approximate_mle(self, binned_data, harmonics=[]):
         """compute the maximum likelihood estimate for the Poisson process with M harmonics based on the binned data

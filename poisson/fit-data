@@ -12,6 +12,10 @@ import sys
 import numpy as np
 import h5py
 
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
 from argparse import ArgumentParser
 
 ### non-standard libraries
@@ -33,6 +37,9 @@ parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
 parser.add_argument('-o', '--output-dir', default='.', type=str)
 parser.add_argument('-t', '--tag', default='', type=str)
+
+parser.add_argument('--histogram', default=False, action='store_true',
+    help='plot a histogram of binned data and XrayProcess models')
 
 args = parser.parse_args()
 
@@ -83,47 +90,62 @@ if args.verbose:
 # compute MLE estimate
 if args.verbose:
     print('instantiating likelihood object')
-true_lambda0 = attrs['noise_mean_differential_rate'] + attrs['signal_mean_differential_rate']
-true_ac_components = list(zip(
-    attrs['periodic_signal_components']['harmonic'],
-    attrs['periodic_signal_components']['amplitude'],
-    attrs['periodic_signal_components']['phase'],
-))
-process = utils.XrayProcess(true_lambda0, *true_ac_components)
-like = utils.BinnedLikelihood(args.num_bins, process=process)
+like = utils.BinnedLikelihood(args.num_bins)
 
 if args.verbose:
     print('binning data')
 binned_data = like.bin(data)
 
 if args.verbose:
-    print('computing likelihood at true parameters')
-true_loglike = like.logprob(binned_data)
-
-if args.verbose:
-    print('computing MLE XrayProcess with %d harmonics'%len(args.harmonic))
+    print('computing MLE XrayProcess with %d harmonics: m=(%s)'% \
+        (len(args.harmonic), ','.join('%d'%_ for _ in args.harmonic)))
 lambda0, ac_components = like.mle(binned_data, harmonics=sorted(args.harmonic))
-
-# NOTE: we normalize by the number of trials to make a fair comparison to the simulation parameters
-lambda0 = lambda0 / Ntrials
-ac_components = [(m, a/Ntrials, d) for m, a, d in ac_components]
 
 # compute likelihood at these parameters
 if args.verbose:
-    print('computing likelihood at MLE parameters')
-like.process = utils.XrayProcess(lambda0, *ac_components)
-max_loglike = like.logprob(binned_data)
+    print('computing likelihood at true and MLE parameters')
 
-# report
+### true process
+true_lambda0 = Ntrials * (attrs['noise_mean_differential_rate'] + attrs['signal_mean_differential_rate'])
+true_ac_components = list(zip(
+    attrs['periodic_signal_components']['harmonic'],
+    Ntrials * attrs['periodic_signal_components']['amplitude'],
+    attrs['periodic_signal_components']['phase'],
+))
+true_process = utils.XrayProcess(true_lambda0, *true_ac_components)
+
+like.process = true_process
+true_loglike = like.logprob(binned_data)
+true_approx_loglike = like.approximate_logprob(binned_data)
+
+### mle process
+mle_process = utils.XrayProcess(lambda0, *ac_components)
+
+like.process = mle_process
+max_loglike = like.logprob(binned_data)
+max_approx_loglike = like.approximate_logprob(binned_data)
+
+### NOTE: 
+# now we normalize by the number of trials to make a fair comparison to the simulation parameters
+# that are specified/stored in the HDF5 files
+true_lambda0 = true_lambda0 / Ntrials
+true_ac_components = [(m, a/Ntrials, d) for m, a, d in true_ac_components]
+
+lambda0 = lambda0 / Ntrials
+ac_components = [(m, a/Ntrials, d) for m, a, d in ac_components]
+
+### report
 if args.Verbose:
     print('True Simulation Parameters')
     print('    logLikelihood = %.6e'%true_loglike)
-    print('    lambda0 = lambda_noise + lambda_signal = %.6e'%true_lambda0)
+    print('    approx logLikelihood = %.6e'%true_approx_loglike)
+    print('    lambda0 = lambda_noise + lambda_signal\n            = %.6e'%(true_lambda0))
     for m, a, d in true_ac_components:
         print('    a_%d = %.6e\n    d_%d = %.6e'%(m, a, m, d))
 
-    print('Max-Likelihood Estiamte')
+    print('Maximum-Likelihood Estimate')
     print('    max(logLikelihood) = %.6e'%max_loglike)
+    print('    max(approx logLikelihood) = %.6e'%max_approx_loglike)
     print('    lambda0 = %.6e'%lambda0)
     for m, a, d in ac_components:
         print('    a_%d = %.6e\n    d_%d = %.6e'%(m, a, m, d))
@@ -142,14 +164,16 @@ with h5py.File(outpath, 'w') as obj:
     group.create_dataset('periodic_signal_components', data=attrs.pop('periodic_signal_components'))
     for key, val in attrs.items():
         group.attrs.create(key, val)
-    group.attrs.create('true_loglikelihood', true_loglike)
+    group.attrs.create('loglikelihood(true_params)', true_loglike)
+    group.attrs.create('approximate_loglikelihood(true_params)', true_approx_loglike)
 
     ### store the fit parameters
     group = obj.create_group('maximum-likelihood-estimate')
 
     group.attrs.create('mean_differential_rate', lambda0)
     group.attrs.create('num_trials', Ntrials)
-    group.attrs.create('max_loglikelihood', max_loglike)
+    group.attrs.create('loglikelihood(mle_params)', max_loglike)
+    group.attrs.create('approx_loglikelihood(mle_params)', max_approx_loglike)
 
     periodic_signal_components = np.empty(
         len(ac_components),
@@ -159,3 +183,21 @@ with h5py.File(outpath, 'w') as obj:
         periodic_signal_components[i] = m, a, d
 
     group.create_dataset('periodic_signal_components', data=periodic_signal_components)
+
+#-------------------------------------------------
+
+if args.histogram:
+    if args.verbose:
+        print('plotting binned_data and XrayProcess models')
+
+    fig = plt.figure()
+    ax = fig.gca()
+
+    raise NotImplementedError
+
+    # save
+    figname = os.path.join(args.output_dir, 'fit-data%s.png'%args.tag)
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+    plt.close(fig)
