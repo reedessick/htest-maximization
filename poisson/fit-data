@@ -25,7 +25,7 @@ parser.add_argument('hdf5', type=str)
 
 parser.add_argument('-N', '--num-bins', default=32, type=int,
     help='the number of bins to use when fitting light curves')
-parser.add_argument('-M', '--num-harmonics', default=10, type=int,
+parser.add_argument('-m', '--harmonic', default=[], type=int, action='append',
     help='the number of harmonics to use when fitting light curves')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
@@ -51,6 +51,7 @@ if args.tag:
 if args.verbose:
     print('loading data and parameters from: '+args.hdf5)
 
+Ntrials = 0
 data = []
 with h5py.File(args.hdf5, 'r') as obj:
     # load parameters
@@ -66,6 +67,7 @@ with h5py.File(args.hdf5, 'r') as obj:
             sys.stdout.flush()
         data.append( group[name]['noise'][:] )
         data.append( group[name]['signal'][:] )
+        Ntrials += 1
 
 if args.Verbose:
     sys.stdout.write('\n')
@@ -74,29 +76,86 @@ if args.Verbose:
 data = np.concatenate(tuple(data)) # make this into a single array
 
 if args.verbose:
-    print('found %d data points'%len(data))
+    print('found %d data points from %d trials'%(len(data), Ntrials))
 
 #-------------------------------------------------
 
 # compute MLE estimate
 if args.verbose:
     print('instantiating likelihood object')
-like = utils.BinnedLikelihood(args.num_bins)
+true_lambda0 = attrs['noise_mean_differential_rate'] + attrs['signal_mean_differential_rate']
+true_ac_components = list(zip(
+    attrs['periodic_signal_components']['harmonic'],
+    attrs['periodic_signal_components']['amplitude'],
+    attrs['periodic_signal_components']['phase'],
+))
+process = utils.XrayProcess(true_lambda0, *true_ac_components)
+like = utils.BinnedLikelihood(args.num_bins, process=process)
 
 if args.verbose:
     print('binning data')
 binned_data = like.bin(data)
 
 if args.verbose:
-    print('computing MLE XrayProcess with %d harmonics'%args.num_harmonics)
-lambda0, ac_components = like.mle(binned_data, M=args.num_harmonics)
+    print('computing likelihood at true parameters')
+true_loglike = like.logprob(binned_data)
 
-print('lambda0 = %.6e'%lambda0)
-for m, a, d in ac_components:
-    print('a_%d = %.6e\nd_%d = %.6e'%(m, a, m, d))
+if args.verbose:
+    print('computing MLE XrayProcess with %d harmonics'%len(args.harmonic))
+lambda0, ac_components = like.mle(binned_data, harmonics=sorted(args.harmonic))
+
+# NOTE: we normalize by the number of trials to make a fair comparison to the simulation parameters
+lambda0 = lambda0 / Ntrials
+ac_components = [(m, a/Ntrials, d) for m, a, d in ac_components]
+
+# compute likelihood at these parameters
+if args.verbose:
+    print('computing likelihood at MLE parameters')
+like.process = utils.XrayProcess(lambda0, *ac_components)
+max_loglike = like.logprob(binned_data)
+
+# report
+if args.Verbose:
+    print('True Simulation Parameters')
+    print('    logLikelihood = %.6e'%true_loglike)
+    print('    lambda0 = lambda_noise + lambda_signal = %.6e'%true_lambda0)
+    for m, a, d in true_ac_components:
+        print('    a_%d = %.6e\n    d_%d = %.6e'%(m, a, m, d))
+
+    print('Max-Likelihood Estiamte')
+    print('    max(logLikelihood) = %.6e'%max_loglike)
+    print('    lambda0 = %.6e'%lambda0)
+    for m, a, d in ac_components:
+        print('    a_%d = %.6e\n    d_%d = %.6e'%(m, a, m, d))
 
 #-------------------------------------------------
 
 # store MLE results alongside simulation parameters
-raise NotImplementedError('''\
-write everything to disk in a file format matching what we had before''')
+outpath = os.path.join(args.output_dir, 'fit-data%s.hdf5'%args.tag)
+if args.verbose:
+    print('writing: '+outpath)
+
+with h5py.File(outpath, 'w') as obj:
+
+    ### store basic attributes of experiment
+    group = obj.create_group('parameters')
+    group.create_dataset('periodic_signal_components', data=attrs.pop('periodic_signal_components'))
+    for key, val in attrs.items():
+        group.attrs.create(key, val)
+    group.attrs.create('true_loglikelihood', true_loglike)
+
+    ### store the fit parameters
+    group = obj.create_group('maximum-likelihood-estimate')
+
+    group.attrs.create('mean_differential_rate', lambda0)
+    group.attrs.create('num_trials', Ntrials)
+    group.attrs.create('max_loglikelihood', max_loglike)
+
+    periodic_signal_components = np.empty(
+        len(ac_components),
+        dtype=[('harmonic', float), ('amplitude', float), ('phase', float)],
+    )
+    for i, (m, a, d) in enumerate(ac_components):
+        periodic_signal_components[i] = m, a, d
+
+    group.create_dataset('periodic_signal_components', data=periodic_signal_components)
