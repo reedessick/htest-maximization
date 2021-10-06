@@ -5,85 +5,113 @@
 
 #-------------------------------------------------
 
-### generate many realizations from the same process
+### declare mapping between signal models and output directories
+declare -A SIGNAL_MODEL
+declare -A HARMONICS
 
-basedir="output"
+# measure the null distribution when fitting for harmonics=(1,2,4)
+SIGNAL_MODEL["null-124"]="--signal-mean-differential-rate 0.0"
+HARMONICS["null-124"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
-for seed in $(seq 1 1000)
-do
-    tag="seed-$seed"
-    outdir="${basedir}/${tag}"
+# inject a weak signal with harmonics=(1,2,4)
+SIGNAL_MODEL["output"]="--signal-mean-differential-rate 1.0 --periodic-signal-component 1 0.3 0.0 --periodic-signal-component 2 0.5 0.0 --periodic-signal-component 4 0.2 0.75"
+HARMONICS["output"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
-    echo "-------------------------"
-    echo "    processing: $tag"
-    echo "-------------------------"
+#------------------------
 
-    ### predict file names
-    all="${outdir}/make-data_${tag}.hdf5"
-    subset="${outdir}/downselect-data_${tag}.hdf5"
-
-    ### generate synthetic data realizations
-    echo \
-    ./make-data \
-        --output-dir $outdir \
-        --tag $tag \
-        --seed $seed \
-        --num-trials 1000 \
-        --noise-mean-differential-rate 50.0 \
-        --signal-mean-differential-rate 1.0 \
-        --periodic-signal-component 1 0.3 0.0 \
-        --periodic-signal-component 2 0.5 0.0 \
-        --periodic-signal-component 4 0.2 0.75 \
-        --Verbose \
-        --histogram
-
-    ### make basic plots summarizing the detection statistics and downselecting data
-    echo \
-    ./downselect-data \
-        $all \
-        --output-dir $outdir \
-        --tag $tag \
-        --Verbose \
-        --trajectory 
-
-    ### actually fit the data and determine whether there are biases
-
-    # fit all data
-    echo \
-    ./fit-data \
-        $all \
-        --harmonic 1 --harmonic 2 --harmonic 4 \
-        --output-dir $outdir \
-        --tag $tag-all \
-        --Verbose \
-        --histogram
-
-    # fit the selected subset of data
-    echo \
-    ./fit-data \
-        $subset \
-        --harmonic 1 --harmonic 2 --harmonic 4 \
-        --output-dir $outdir \
-        --tag $tag-subset \
-        --Verbose \
-        --histogram
-
-done
+#BASEDIRS="null-124 output"
+BASEDIRS="null-124"
 
 #-------------------------------------------------
 
-echo "-------------------------"
-echo "summarizing experiments"
+### generate many realizations from the same process
 
-#echo \
-./compare-fit \
-    --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
-    --subset-data-hdf5 ${basedir}/*/fit-data_*subset.hdf5 \
-    --output-dir $basedir \
-    --Verbose
+for basedir in $BASEDIRS
+do
 
-#echo \
-./compare-Htest \
-    --hdf5 ${basedir}/*/downselect-data*.hdf5 \
-    --output-dir $basedir \
-    --verbose
+    for seed in $(seq 1 1000)
+    do
+        tag="seed-$seed"
+        outdir="${basedir}/${tag}"
+
+        echo "-------------------------"
+        echo "    processing: $basedir $tag"
+        echo "-------------------------"
+
+        ### predict file names
+
+        all="${outdir}/make-data_${tag}.hdf5"
+        subset="${outdir}/downselect-data_${tag}.hdf5"
+
+        #----------------
+
+        ### generate synthetic data realizations
+
+        echo \
+        ./make-data \
+            --output-dir $outdir \
+            --tag $tag \
+            --seed $seed \
+            --num-trials 1000 \
+            --noise-mean-differential-rate 50.0 \
+            ${SIGNAL_MODEL[$basedir]} \
+            --Verbose \
+            --histogram
+
+        #----------------
+
+        ### make basic plots summarizing the detection statistics and downselecting data
+
+        echo \
+        ./downselect-data \
+            $all \
+            --output-dir $outdir \
+            --tag $tag \
+            --Verbose \
+            --trajectory 
+
+        #----------------
+
+        ### actually fit the data and determine whether there are biases
+
+        # fit all data
+        echo \
+        ./fit-data \
+            $all \
+            ${HARMONICS[$basedir]} \
+            --output-dir $outdir \
+            --tag $tag-all \
+            --Verbose \
+            --histogram
+
+        # fit the selected subset of data
+        echo \
+        ./fit-data \
+            $subset \
+            ${HARMONICS[$basedir]} \
+            --output-dir $outdir \
+            --tag $tag-subset \
+            --Verbose \
+            --histogram
+
+    done
+
+    #--------------------
+
+    echo "-------------------------"
+    echo "summarizing experiments"
+
+#    echo \
+    ./compare-fit \
+        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-data_*subset.hdf5 \
+        --output-dir $basedir \
+        --Verbose
+
+#    echo \
+    ./compare-Hstat \
+        --hdf5 ${basedir}/*/downselect-data*.hdf5 \
+        --output-dir $basedir \
+        --verbose
+
+done

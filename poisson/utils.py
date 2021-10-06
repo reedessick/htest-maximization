@@ -59,8 +59,9 @@ class XrayProcess(object):
         assert np.all(phase_cdf >= 0), 'phase CDF cannot be negative' ### probably redundant, but ok to check
 
         ### normalize interpolators
-        phase_pdf /= phase_cdf[-1]
-        phase_cdf /= phase_cdf[-1]
+        if phase_cdf[-1] > 0:
+            phase_pdf /= phase_cdf[-1]
+            phase_cdf /= phase_cdf[-1]
 
         # return
         return phase_grid, phase_pdf, phase_cdf
