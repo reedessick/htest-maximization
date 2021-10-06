@@ -7,10 +7,13 @@
 
 ### generate many realizations from the same process
 
-for seed in $(seq 1 100)
+basedir="output"
+
+#for seed in $(seq 1 100)
+for seed in 1
 do
     tag="seed-$seed"
-    outdir="output/$tag"
+    outdir="${basedir}/${tag}"
 
     echo "-------------------------"
     echo "    processing: $tag"
@@ -73,7 +76,9 @@ done
 echo "-------------------------"
 echo "summarizing experiments"
 
-### FIXME:
-# once this is done for all the realizations, we should write a script that compares them (ie, plots)
+#echo \
 ./compare-realizations \
-    --help
+    --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
+    --subset-data-hdf5 ${basedir}/*/fit-data_*subset.hdf5 \
+    --output-dir $basedir \
+    --Verbose

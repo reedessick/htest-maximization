@@ -23,6 +23,14 @@ import corner
 
 #-------------------------------------------------
 
+small_figsize = (15, 15)
+big_figsize = (20, 20)
+
+legend_loc = 0.75
+legend_dif = 0.10
+
+#-------------------------------------------------
+
 parser = ArgumentParser(description=__doc__)
 
 parser.add_argument('--all-data-hdf5', type=str, nargs='+', required=True,
@@ -41,9 +49,9 @@ parser.add_argument('-t', '--tag', default='', type=str)
 
 args = parser.parse_args()
 
-datasets = [
-    ('all', args.all_data_hdf5),
-    ('subset', args.subset_data_hdf5),
+datasets = [ # (label, color, include_ntrials, paths)
+    ('all', 'k', False, args.all_data_hdf5),
+    ('subset', 'r', True, args.subset_data_hdf5),
 ]
 
 args.verbose |= args.Verbose
@@ -57,11 +65,9 @@ if args.tag:
 
 #-------------------------------------------------
 
-fig = None
-legend_loc = 0.75
-legend_dif = 0.10
+fig = plt.figure(figsize=big_figsize)
 
-for ind, (label, paths) in enumerate(datasets):
+for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
 
     # load data
     if args.verbose:
@@ -70,7 +76,7 @@ for ind, (label, paths) in enumerate(datasets):
     true_params = []
     mle_params = []
 
-    labels = ['approx logL', 'logL', 'Ntrials', 'lambda0']
+    labels = ['approx $\log\mathcal{L}$', '$\log\mathcal{L}$', '$\lambda_0$']
     harmonics = None
 
     for path in paths:
@@ -88,14 +94,17 @@ for ind, (label, paths) in enumerate(datasets):
             lambda0 = group.attrs['noise_mean_differential_rate'] + group.attrs['signal_mean_differential_rate']
             ac_comp = group['periodic_signal_components'][:]            
 
-            datum = [approx_loglike, loglike, ntrials, lambda0]
+            datum = [approx_loglike, loglike, lambda0]
             for m, a, d in ac_comp:
                 datum += [a, d]
+            datum += [ntrials]
 
             if harmonics is None: # define labels and harmonics
                 harmonics = [m for m, _, _ in ac_comp]
                 for m in harmonics:
-                    labels += ['a_%d'%m, 'd_%d'%m]
+                    labels += ['$a_%d$'%m, '$\delta_%d$'%m]
+                labels.append('$N_\mathrm{seg}$')
+
             else: # make sure we have consistent harmonics
                 assert len(ac_comp)==len(harmonics), 'different numbers of harmonics!'
                 assert all([M==m for M, (m, _, _) in zip(harmonics, ac_comp)]), 'different harmonic ordering!'
@@ -115,9 +124,10 @@ for ind, (label, paths) in enumerate(datasets):
             assert len(ac_comp)==len(harmonics), 'different numbers of harmonics!'
             assert all([M==m for M, (m, _, _) in zip(harmonics, ac_comp)]), 'different harmonic ordering!'
 
-            datum = [approx_loglike, loglike, ntrials, lambda0]
+            datum = [approx_loglike, loglike, lambda0]
             for m, a, d in ac_comp:
-                datam += [a, d]
+                datum += [a, d]
+            datum.append(ntrials)
 
             mle_params.append(datum)
 
@@ -128,17 +138,54 @@ for ind, (label, paths) in enumerate(datasets):
     true_params = np.array(true_params)
     mle_params = np.array(mle_params)
 
+    #--------------------
+
+    if args.verbose:
+        print('plotting distributions of MLE parameters')
+
+    FIG = plt.figure(figsize=small_figsize)
+
+    if include_ntrials:
+        corner.corner(
+            mle_params[:,2:],
+            truths=true_params[0,2:], ### NOTE: assumes all realizations have same true parameters, may want to check this
+            labels=labels[2:],
+            color=color,
+            fig=FIG,
+        )
+
+    else:
+        corner.corner(
+            mle_params[:,2:-1],
+            truths=true_params[0,2:-1], ### NOTE: assumes all realizations have same true parameters, may want to check this
+            labels=labels[2:-1],
+            color=color,
+            fig=FIG,
+        )
+
+    # save
+    figname = os.path.join(args.output_dir, 'compare-realizations-%s%s.png'%(label, args.tag))
+    if args.verbose:
+        print('saving: '+figname)
+    FIG.savefig(figname)
+    plt.close(FIG)
+
+    #--------------------
+
+    # add deviations to big corner plot
+    if args.verbose:
+        print('plotting deviations')
     deviations = mle_params - true_params
 
-    # add to corner plot
     fig = corner.corner(
-         deviations,
+         deviations[:,:-1],
          labels=labels,
+         color=color,
          fig=fig,
     )
 
     # add a legend
-    ax.text(legend_loc, legend_loc-ind*legend_dif, label, ha='right', va='top')
+    fig.text(legend_loc, legend_loc-ind*legend_dif, label, ha='right', va='top', color=color)
 
 # save
 figname = os.path.join(args.output_dir, 'compare-realizations%s.png'%args.tag)
