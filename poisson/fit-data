@@ -193,7 +193,58 @@ if args.histogram:
     fig = plt.figure()
     ax = fig.gca()
 
-    raise NotImplementedError
+    # compute binned mean counts for true and mle processes
+    like.process = true_process
+    truth = like.binned_means
+
+    like.process = mle_process
+    mle = like.binned_means
+
+    ### plot binned data
+    x = []
+    d = []
+    t = []
+    m = []
+    for l, r, datum, truth, mle in zip(like.bins[:-1], like.bins[1:], binned_data, truth, mle):
+        x += [l, r]
+        d += [datum]*2
+        t += [truth]*2
+        m += [mle]*2
+
+    d = np.array(d)
+    s = d**0.5
+
+    ymin = min(min(d-3*s), min(t), min(m))
+    ymax = max(max(d+3*s), max(t), max(m))
+    dy = (ymax-ymin)*0.05
+    ymin -= dy
+    ymax += dy
+
+    for ind in [3, 2, 1]:
+        ax.fill_between(x, d-ind*s, d+ind*s, color='grey', alpha=0.25)
+    ax.plot(x, d, color='k', label='data')
+
+    ax.plot(x, t, color='r', label='true process')
+    ax.plot(x, m, color='b', label='MLE process')
+
+    ### decorate
+    ax.set_xlabel('phase [rad]')
+    ax.set_xlim(xmin=0, xmax=2*np.pi)
+    ax.set_xticks([0, np.pi/2, np.pi, 3*np.pi/2, 2*np.pi])
+    ax.set_xticklabels(['$0$', '$\pi/2$', '$\pi$', '$3\pi/2$', '$2\pi$'])
+
+    ax.set_ylabel('count')
+    ax.set_ylim(ymin=ymin, ymax=ymax)
+
+    ax.legend(loc='best')
+
+    plt.subplots_adjust(
+        left=0.12,
+        right=0.98,
+        bottom=0.10,
+        top = 0.98,
+        hspace=0.05,
+    )
 
     # save
     figname = os.path.join(args.output_dir, 'fit-data%s.png'%args.tag)
