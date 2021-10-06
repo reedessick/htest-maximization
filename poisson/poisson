@@ -9,8 +9,8 @@
 
 basedir="output"
 
-#for seed in $(seq 1 100)
-for seed in 1
+#for seed in $(seq 1 1000)
+for seed in $(seq 101 1000)
 do
     tag="seed-$seed"
     outdir="${basedir}/${tag}"
@@ -24,7 +24,7 @@ do
     subset="${outdir}/downselect-data_${tag}.hdf5"
 
     ### generate synthetic data realizations
-    echo \
+#    echo \
     ./make-data \
         --output-dir $outdir \
         --tag $tag \
@@ -39,7 +39,7 @@ do
         --histogram
 
     ### make basic plots summarizing the detection statistics and downselecting data
-    echo \
+#    echo \
     ./downselect-data \
         $all \
         --output-dir $outdir \
@@ -50,7 +50,7 @@ do
     ### actually fit the data and determine whether there are biases
 
     # fit all data
-    echo \
+#    echo \
     ./fit-data \
         $all \
         --harmonic 1 --harmonic 2 --harmonic 4 \
@@ -60,7 +60,7 @@ do
         --histogram
 
     # fit the selected subset of data
-    echo \
+#    echo \
     ./fit-data \
         $subset \
         --harmonic 1 --harmonic 2 --harmonic 4 \

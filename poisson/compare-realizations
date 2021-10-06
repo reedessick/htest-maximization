@@ -23,11 +23,13 @@ import corner
 
 #-------------------------------------------------
 
-small_figsize = (15, 15)
-big_figsize = (20, 20)
+FIGTYPES = ['png', 'pdf']
 
-legend_loc = 0.75
-legend_dif = 0.10
+FIGSIZE_SMALL = (15, 15)
+FIGSIZE_LARGE = (20, 20)
+
+LEGEND_LOC = 0.75
+LEGEND_DIF = 0.10
 
 #-------------------------------------------------
 
@@ -65,7 +67,7 @@ if args.tag:
 
 #-------------------------------------------------
 
-fig = plt.figure(figsize=big_figsize)
+fig = plt.figure(figsize=FIGSIZE_LARGE)
 
 for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
 
@@ -143,7 +145,7 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
     if args.verbose:
         print('plotting distributions of MLE parameters')
 
-    FIG = plt.figure(figsize=small_figsize)
+    FIG = plt.figure(figsize=FIGSIZE_SMALL)
 
     if include_ntrials:
         corner.corner(
@@ -164,10 +166,11 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
         )
 
     # save
-    figname = os.path.join(args.output_dir, 'compare-realizations-%s%s.png'%(label, args.tag))
-    if args.verbose:
-        print('saving: '+figname)
-    FIG.savefig(figname)
+    for figtype in FIGTYPES:
+        figname = os.path.join(args.output_dir, 'compare-realizations-%s%s.%s'%(label, args.tag, figtype))
+        if args.verbose:
+            print('saving: '+figname)
+        FIG.savefig(figname)
     plt.close(FIG)
 
     #--------------------
@@ -185,11 +188,12 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
     )
 
     # add a legend
-    fig.text(legend_loc, legend_loc-ind*legend_dif, label, ha='right', va='top', color=color)
+    fig.text(LEGEND_LOC, LEGEND_LOC - ind*LEGEND_DIF, label, ha='right', va='top', color=color)
 
 # save
-figname = os.path.join(args.output_dir, 'compare-realizations%s.png'%args.tag)
-if args.verbose:
-    print('saving: '+figname)
-fig.savefig(figname)
+for figtype in FIGTYPES:
+    figname = os.path.join(args.output_dir, 'compare-realizations%s.%s'%(args.tag, figtype))
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
 plt.close(fig)
