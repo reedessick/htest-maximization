@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+"""a script to compare the distribution of parameters extracted from realizations of our Poisson model
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+import h5py
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('--hdf5-fits-with-all', type=str, nargs='+',
+    help='paths to HDF5 fit-data files that used all data in each realization')
+
+parser.add_argument('--hdf5-fits-with-subset', type=str, nargs='+',
+    help='paths to HDF fit-data files that used a subset of data in each realization')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+#-------------------------------------------------
+
+raise NotImplementedError

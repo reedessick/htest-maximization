@@ -36,6 +36,7 @@ do
         --histogram
 
     ### make basic plots summarizing the detection statistics and downselecting data
+    echo \
     ./downselect-data \
         $all \
         --output-dir $outdir \
@@ -46,6 +47,7 @@ do
     ### actually fit the data and determine whether there are biases
 
     # fit all data
+    echo \
     ./fit-data \
         $all \
         --harmonic 1 --harmonic 2 --harmonic 4 \
@@ -55,6 +57,7 @@ do
         --histogram
 
     # fit the selected subset of data
+    echo \
     ./fit-data \
         $subset \
         --harmonic 1 --harmonic 2 --harmonic 4 \
@@ -72,3 +75,5 @@ echo "summarizing experiments"
 
 ### FIXME:
 # once this is done for all the realizations, we should write a script that compares them (ie, plots)
+./compare-realizations \
+    --help
