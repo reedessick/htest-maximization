@@ -13,15 +13,23 @@ declare -A HARMONICS
 SIGNAL_MODEL["null-124"]="--signal-mean-differential-rate 0.0 --periodic-signal-component 1 0.0 0.0 --periodic-signal-component 2 0.0 0.0 --periodic-signal-component 4 0.0 0.75"
 HARMONICS["null-124"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
+# inject a very weak signal with harmonics=(1,2,4)
+SIGNAL_MODEL["small"]="--signal-mean-differential-rate 0.1 --periodic-signal-component 1 0.03 0.0 --periodic-signal-component 2 0.05 0.0 --periodic-signal-component 4 0.02 0.75"
+HARMONICS["small"]="--harmonic 1 --harmonic 2 --harmonic 4"
+
 # inject a weak signal with harmonics=(1,2,4)
 SIGNAL_MODEL["output"]="--signal-mean-differential-rate 1.0 --periodic-signal-component 1 0.3 0.0 --periodic-signal-component 2 0.5 0.0 --periodic-signal-component 4 0.2 0.75"
 HARMONICS["output"]="--harmonic 1 --harmonic 2 --harmonic 4"
+
+# inject a large signal with harmonics=(1,2,4)
+SIGNAL_MODEL["large"]="--signal-mean-differential-rate 10.0 --periodic-signal-component 1 3.0 0.0 --periodic-signal-component 2 5.0 0.0 --periodic-signal-component 4 2.0 0.75"
+HARMONICS["large"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
 #------------------------
 
 ### declare which signal models we want to run
 
-BASEDIRS="null-124 output"
+BASEDIRS="null-124 small output large"
 
 #-------------------------------------------------
 
