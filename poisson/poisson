@@ -10,7 +10,7 @@ declare -A SIGNAL_MODEL
 declare -A HARMONICS
 
 # measure the null distribution when fitting for harmonics=(1,2,4)
-SIGNAL_MODEL["null-124"]="--signal-mean-differential-rate 0.0"
+SIGNAL_MODEL["null-124"]="--signal-mean-differential-rate 0.0 --periodic-signal-component 1 0.0 0.0 --periodic-signal-component 2 0.0 0.0 --periodic-signal-component 4 0.0 0.75"
 HARMONICS["null-124"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
 # inject a weak signal with harmonics=(1,2,4)
@@ -19,12 +19,13 @@ HARMONICS["output"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
 #------------------------
 
-#BASEDIRS="null-124 output"
-BASEDIRS="null-124"
+### declare which signal models we want to run
+
+BASEDIRS="null-124 output"
 
 #-------------------------------------------------
 
-### generate many realizations from the same process
+### generate many realizations from the same process for each signal model
 
 for basedir in $BASEDIRS
 do
