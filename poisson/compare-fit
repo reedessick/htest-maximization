@@ -79,6 +79,8 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
     mle_params = []
 
     labels = ['approx $\log\mathcal{L}$', '$\log\mathcal{L}$', '$\lambda_0$']
+    dtype = [('approxLogLike', float), ('LogLike', float), ('lambda0', float)]
+
     harmonics = None
 
     for path in paths:
@@ -105,7 +107,9 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
                 harmonics = [m for m, _, _ in ac_comp]
                 for m in harmonics:
                     labels += ['$a_%d$'%m, '$\delta_%d$'%m]
+                    dtype += [('a%d'%m, float), ('d%d'%m, float)]
                 labels.append('$N_\mathrm{seg}$')
+                dtype.append(('Nseg', int))
 
             else: # make sure we have consistent harmonics
                 assert len(ac_comp)==len(harmonics), 'different numbers of harmonics!'
@@ -140,12 +144,20 @@ for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
     true_params = np.array(true_params)
     mle_params = np.array(mle_params)
 
-    hist_kwargs = {'density':True}
+    # save the results!
+    outpath = os.path.join(args.output_dir, 'compare-fit-%s%s.hdf5'%(label, args.tag))
+    if args.verbose:
+        print('writing statistics to: '+outpath)
+    with h5py.File(outpath, 'w') as obj:
+        obj.create_dataset('true_parameters', data=np.array([tuple(_) for _ in true_params], dtype=dtype))
+        obj.create_dataset('mle_parameters', data=np.array([tuple(_) for _ in mle_params], dtype=dtype))
 
     #--------------------
 
     if args.verbose:
         print('plotting distributions of MLE parameters')
+
+    hist_kwargs = {'density':True}
 
     FIG = plt.figure(figsize=FIGSIZE_SMALL)
 

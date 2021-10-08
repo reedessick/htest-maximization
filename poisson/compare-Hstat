@@ -92,6 +92,14 @@ if args.Verbose:
     sys.stdout.write('\n')
     sys.stdout.flush()
 
+# write summary data into a single place
+outpath = os.path.join(args.output_dir, 'compare-Hstat%s.hdf5'%args.tag)
+if args.verbose:
+    print('writing summary data to: '+outpath)
+with h5py.File(outpath, 'w') as obj:
+    obj.create_dataset('alldata', data=alldata)
+    obj.create_dataset('subset', data=subset)
+
 #-------------------------------------------------
 
 # plot data
