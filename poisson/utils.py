@@ -129,7 +129,7 @@ class XrayProcess(object):
 
 #------------------------
 
-### object representing likelihood of observing binned phases
+### objects representing likelihood and posterior based on binned phases
 
 class BinnedLikelihood(object):
     """a model representing the Poisson likelihood for observations binned over phase
@@ -279,3 +279,38 @@ take the linearized estimate and use it as the seed for a numeric maximization o
 
         ### return parameters of MLE process
         return lambda0, list(zip(harmonics, a_m, d_m))
+
+class BinnedPosterior(BinnedLikelihood):
+    """an object representing the posterior assuming flat priors on all model parameters
+    """
+
+    def __init__(self, data, bins, process=None):
+        BinnedLikelihood(self, bins, process=process)
+        self._data = data
+        self._binned_data = self.bin(data)
+
+    @property
+    def data(self):
+        return self._data
+
+    @property
+    def binned_data(self):
+        return self._binned_data
+
+    def prob(self):
+        return BinnedLikelihood.prob(self, self.binned_data)
+
+    def logprob(self):
+        return BinnedLikelihood.logprob(self, self.binned_data)
+
+    def map(self, harmonics=[]):
+        return BinnedLikelihood.mle(self, self.binned_data, harmonics=harmonics)
+
+    def approximate_prob(self):
+        return BinnedLikelihood.approximate_prob(self, self.binned_data)
+
+    def approximate_logprob(self):
+        return BinnedLikelihood.approximate_logprob(self, self.binned_data)
+
+    def approximate_map(self, harmonics=[]):
+        return BinnedLikelihood.approximate_mle(self, self.binned_data, harmonics=harmonics)

@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+
+"""run an mcmc algorithm to sample from a posterior conditioned on the supplied dataset
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+import h5py
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+import emcee
+
+import utils
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('hdf5', type=str, help='the HDF5 document containing samples and true parameters')
+
+parser.add_argument('-N', '--num-bins', default=32, type=int,
+    help='the number of bins to use when fitting light curves')
+parser.add_argument('-m', '--harmonic', default=[], type=int, action='append',
+    help='the number of harmonics to use when fitting light curves')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+#-------------------------------------------------
+
+### load data
+if args.verbose:
+    print('loading data from: '+args.hdf5)
+
+data = []
+with h5py.File(args.hdf5, 'r') as obj:
+
+    # grab true parameters
+    group = obj['parameters']
+    truth = dict(group.attrs.items())
+    truth['periodic_signal_components'] = group['periodic_signal_components'][:]
+
+    # grab data
+    group = obj['trials']
+    Ntrials = len(group.keys())
+    for key in group.keys():
+        data += [group[key]['noise'][:], group[key]['signal'][:]]
+
+data = np.concatenate(tuple(data))
+
+if args.verbose:
+    print('found %d events from %d trials'%(len(data), Ntrials))
+
+#------------------------
+
+# instantiate objects
+if args.verbose:
+    print('instantiating XrayProcess and BinnedPosterior with %d phase bins'%args.num_bins)
+
+process = utils.XrayProcess(
+    Ntrials*(truth['noise_mean_differential_rate']+truth['signal_mean_differential_rate']),
+    *[(m, Ntrials*a, d) for m, a, d in truth['periodic_signal_components']]
+)
+
+posterior = utils.BinnedPosterior(data, args.num_bins, process=process)
+
+#---------------------------
+
+raise NotImplementedError('''\
+need to define a function that will each signal parameters, update the process object, and then call the posterior object to get the probability
+
+instantiate walkers around the true parameters
+
+run sampler for some period of time, obtain posteriors
+
+write posteriors to disk
+''')
