@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+
+"""a script that selects subsets of the data for selection-effect estimation
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+import h5py
+
+from argparse import ArgumentParser
+
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('hdf5', type=str)
+
+parser.add_argument('count_threshold', type=float,
+    help='only retain trials with fewer total counts than this')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+#-------------------------------------------------
+
+# load data
+if args.verbose:
+    print('loading data from: '+args.hdf5)
+trials = []
+with h5py.File(args.hdf5, 'r') as obj:
+    # load parameters
+    group = obj['parameters']
+    attrs = dict(group.attrs.items())
+    attrs['periodic_signal_components'] = group['periodic_signal_components'][:]
+
+    # load data
+    group = obj['trials']
+    for name in group.keys():
+        if args.Verbose:
+            sys.stdout.write('\r    loading: '+name)
+            sys.stdout.flush()
+        noise = group[name]['noise'][:]
+        signal = group[name]['signal'][:]
+        trials.append((name, len(noise)+len(signal), dict(noise=noise, signal=signal)))
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+
+Ntrials = len(trials)
+
+if args.verbose:
+    print('found %d / %d trials'%(Ntrials, attrs['num_trials']))
+
+#------------------------
+
+if args.verbose:
+    print('downselecting trials so that total count is <= %f'%args.count_threshold)
+trials = [(name, n, datum) for name, n, datum in trials if n <= args.count_threshold]
+if args.verbose:
+    print('retained %d trials'%len(trials))
+
+#------------------------
+
+outpath = os.path.join(args.output_dir, 'select-data%s.hdf5'%args.tag) 
+if args.verbose:
+    print('writing: '+outpath)
+
+with h5py.File(outpath, 'w') as obj:
+
+    ### store basic attributes of experiment
+    group = obj.create_group('parameters')
+    group.create_dataset('periodic_signal_components', data=attrs.pop('periodic_signal_components'))
+    for key, val in attrs.items():
+        group.attrs.create(key, val)
+
+    ### iterate over trials that pass the selection cut
+    low = obj.create_group('trials')
+    high = obj.create_group('discarded_trials')
+
+    for name, n, datum in trials:
+        if n <= args.count_threshold: ### filter by count threshold
+            grp = low.create_group(name)
+        else:
+            grp = high.create_group(name)
+
+        grp.create_dataset('noise', data=datum['noise'])
+        grp.create_dataset('signal', data=datum['signal'])
+
+    if args.verbose:
+        print('retained %d trials'%len(low.keys()))

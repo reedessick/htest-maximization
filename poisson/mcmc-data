@@ -26,7 +26,12 @@ import utils
 
 parser = ArgumentParser(description=__doc__)
 
-parser.add_argument('hdf5', type=str, help='the HDF5 document containing samples and true parameters')
+parser.add_argument('observed_data', type=str,
+    help='the HDF5 document containing samples and true parameters')
+
+parser.add_argument('selection_effect_simulations', type=str,
+    help='the HDF5 document containing many realizations of segments that pass a selection cut. \
+These will be reweighed within an importance-sampling monte-carlo summation to approximate selection effects.')
 
 parser.add_argument('-N', '--num-bins', default=32, type=int,
     help='the number of bins to use when fitting light curves')
@@ -51,10 +56,10 @@ if args.tag:
 
 ### load data
 if args.verbose:
-    print('loading data from: '+args.hdf5)
+    print('loading observed data from: '+args.observed_data)
 
 data = []
-with h5py.File(args.hdf5, 'r') as obj:
+with h5py.File(args.observed_data, 'r') as obj:
 
     # grab true parameters
     group = obj['parameters']
@@ -73,6 +78,29 @@ if args.verbose:
     print('found %d events from %d trials'%(len(data), Ntrials))
 
 #------------------------
+
+if args.verbose:
+    print('loading selection-effect simulations from: '+args.selection_effect_simulations)
+
+selection_trials = []
+with h5py.File(args.selection_effect_simulations, 'r') as obj:
+    # load true parameters
+    group = obj['parameters']
+    selection_truth = dict(group.attrs.items())
+    selection_truth['periodic_signal_components'] = group['periodic_signal_components'][:]
+
+    # load separate trials
+    group = obj['trials']
+    for key in group.keys():
+        selection_trials.append( np.concatenate((group[key]['noise'][:], group[key]['signal'][:])) )
+
+N_total_selection_trials = selection_truth['num_trials']
+
+raise NotImplementedError('''\
+need to set up everything we need to compute the selection effects efficiently.
+''')
+
+#-------------------------------------------------
 
 # instantiate objects
 if args.verbose:
