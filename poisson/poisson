@@ -29,7 +29,8 @@ HARMONICS["large"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
 ### declare which signal models we want to run
 
-BASEDIRS="null-124 small medium large"
+#BASEDIRS="null-124 small medium large"
+BASEDIRS="small medium large"
 
 #-------------------------------------------------
 
@@ -51,6 +52,7 @@ do
 
         all="${outdir}/make-data_${tag}.hdf5"
         subset="${outdir}/downselect-data_${tag}.hdf5"
+        random="${outdir}/downselect-data_random-${tag}.hdf5"
 
         #----------------
 
@@ -74,8 +76,18 @@ do
         echo \
         ./downselect-data \
             $all \
+            "increasing_count" \
             --output-dir $outdir \
             --tag $tag \
+            --Verbose \
+            --trajectory 
+
+#        echo \
+        ./downselect-data \
+            $all \
+            "random" \
+            --output-dir $outdir \
+            --tag random-$tag \
             --Verbose \
             --trajectory 
 
@@ -103,6 +115,16 @@ do
             --Verbose \
             --histogram
 
+        # fit the random subset
+#        echo \
+        ./fit-data \
+            $random \
+            ${HARMONICS[$basedir]} \
+            --output-dir $outdir \
+            --tag $tag-random \
+            --Verbose \
+            --histogram
+
     done
 
     #--------------------
@@ -118,9 +140,24 @@ do
         --Verbose
 
 #    echo \
+    ./compare-fit \
+        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-data_*random.hdf5 \
+        --output-dir $basedir \
+        --tag random \
+        --Verbose
+
+#    echo \
     ./compare-Hstat \
         --hdf5 ${basedir}/*/downselect-data*.hdf5 \
         --output-dir $basedir \
+        --verbose
+
+#    echo \
+    ./compare-Hstat \
+        --hdf5 ${basedir}/*/downselect-data_random*.hdf5 \
+        --output-dir $basedir \
+        --tag random \
         --verbose
 
 done
