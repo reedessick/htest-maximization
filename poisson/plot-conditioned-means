@@ -1,0 +1,182 @@
+#!/usr/bin/env python
+
+"""a script to plot Monte Carlo estimates of conditioned expectation values for MLE signal amplitudes
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+
+import numpy as np
+import h5py
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+plt.rcParams.update({
+    'font.family': 'serif',
+    'mathtext.fontset': 'dejavuserif',
+    'mathtext.rm': 'serif',
+})
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+FIGTYPES = ['png', 'pdf']
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('hdf5', type=str)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='.', type=str)
+
+args = parser.parse_args()
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+#-------------------------------------------------
+
+LABELS = {
+    'lambda0':'\hat{\lambda}_0',
+    'a1':'\hat{a}_1',
+    'a2':'\hat{a}_2',
+    'a4':'\hat{a}_4',
+}
+
+#-------------------------------------------------
+
+def monte_carlo_mean(x):
+    """estimate the monte carlo mean and uncertainty
+    """
+    N = len(x)
+    if N:
+        sample_mean = 1.*np.sum(x)/N
+        sample_variance = np.sum( (x-sample_mean)**2 ) / N
+        sample_mean_variance = sample_variance / N
+    else:
+        sample_mean = np.nan
+        sample_mean_variance = np.nan
+
+    return sample_mean, sample_mean_variance**0.5
+
+def conditioned_means(x, N, thr):
+    """compute the conditioned means:
+    E[x|N>thr] and E[x|N<=thr]
+with uncertainty estimates
+    """
+    return monte_carlo_mean(x[N>thr]), monte_carlo_mean(x[N<=thr])
+
+#-------------------------------------------------
+
+# laod in data
+if args.verbose:
+    print('loading: '+args.hdf5)
+
+with h5py.File(args.hdf5, 'r') as obj:
+    data = obj['mle_parameters'][:]
+    true = obj['true_parameters'][:]
+
+#-------------------------------------------------
+
+# compute conditioned means as a function of the threshold
+thresholds = np.linspace(1, true['Nseg'][0], 1001)
+
+means = dict()
+truth = dict()
+for key in LABELS.keys():
+    means[key] = np.array([conditioned_means(data[key], data['Nseg'], thr) for thr in thresholds], dtype=float)
+    truth[key] = true[key][0]
+
+#------------------------
+
+# plot estimates of conditioned means
+
+thresholds = true['Nseg'][0] - thresholds[::-1]
+for key in LABELS.keys():
+    means[key] = means[key][::-1]
+
+for key in allmeans.keys():
+
+    fig = plt.figure(figsize=(4,6))
+
+#    ax = fig.gca()
+#    AX = ax.twinx()
+
+    ax = plt.subplot(2,1,1)
+    AX = plt.subplot(2,1,2)
+
+    norm = 1.0 ### do not scale
+
+    ### plot ordered subset
+
+    # plot E[key|N>thr]
+    data = means[key][:,0]
+    ax.plot(thresholds, data[:,0]/norm, color='b')
+    ax.fill_between(thresholds, (data[:,0]-data[:,1])/norm, (data[:,0]+data[:,1])/norm, color='b', alpha=0.25)
+
+    # plot E[key|N<=thr]
+    data = means[key][:,1]
+    AX.plot(thresholds, data[:,0]/norm, color='b', linestyle='dashed')
+    AX.fill_between(thresholds, (data[:,0]-data[:,1])/norm, (data[:,0]+data[:,1])/norm, color='b', alpha=0.25)
+
+    ### plot all data and truth
+    xmin, xmax = [max(1, thresholds[0]), thresholds[-1]]
+    xlim = (xmin, xmax)
+
+    for a, linestyle in [(ax, 'solid'), (AX, 'dashed')]:
+        a.plot(xlim, [truth[key]/norm]*2, color='k')
+
+    ### decorate
+#    ax.set_xlabel('$N_\mathrm{thr}$', fontsize=12)
+    plt.setp(ax.get_xticklabels(), visible=False)
+    ax.set_ylabel(r'$\mathcal{E} \left[ %s |N_\mathrm{seg} - N_\mathrm{seg}^{(\mathrm{ret})} < N_\mathrm{thr} \right]$'%LABELS[key], fontsize=12)
+
+    AX.set_xlabel('$N_\mathrm{thr}$')
+    AX.set_ylabel(r'$\mathcal{E} \left[ %s |N_\mathrm{seg} - N_\mathrm{seg}^{(\mathrm{ret})} \geq N_\mathrm{thr} \right]$'%LABELS[key], fontsize=12)
+
+    dx = (xmax/xmin)**0.05
+    xmin /= dx
+    xmax *= dx
+    xlim = (xmin, xmax)
+
+    for _ in [ax, AX]:
+        _.tick_params(direction='in', right=True, top=True)
+
+        _.set_xscale('log')
+        _.set_xlim(xlim)
+
+    ymin, ymax = ax.get_ylim()
+    YMIN, YMAX = AX.get_ylim()
+    ymin = min(ymin, YMIN)
+    ymax = max(ymax, YMAX)
+
+#    ax.set_ylim(ymin=ymin, ymax=ymax)
+#    AX.set_ylim(ymin=ymin, ymax=ymax)
+
+    plt.subplots_adjust(
+        left=0.20,
+        right=0.95,
+        bottom=0.15,
+        top=0.95,
+        hspace=0.02,
+        wspace=0.02,
+    )
+
+    ### save
+    for figtype in FIGTYPES:
+        figname = os.path.join(args.output_dir, 'plot-conditioned-means-%s.%s'%(key, figtype))
+        print('saving: '+figname)
+        fig.savefig(figname)
+    plt.close(fig)
