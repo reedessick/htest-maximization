@@ -29,8 +29,7 @@ HARMONICS["large"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
 ### declare which signal models we want to run
 
-#BASEDIRS="null-124 small medium large"
-BASEDIRS="null-124 small large"
+BASEDIRS="null-124 small medium large"
 
 #-------------------------------------------------
 
@@ -115,7 +114,7 @@ do
             --Verbose \
             --histogram
 
-#        echo \
+        echo \
         ./fit-data \
             $subset \
             ${HARMONICS[$basedir]} \
@@ -135,7 +134,7 @@ do
             --Verbose \
             --histogram
 
-#        echo \
+        echo \
         ./fit-data \
             $random \
             ${HARMONICS[$basedir]} \
@@ -146,7 +145,7 @@ do
             --histogram
 
         # fit completely random subset
-#        echo \
+        echo \
         ./fit-data \
             $subset \
             ${HARMONICS[$basedir]} \
@@ -170,7 +169,7 @@ do
         --output-dir $basedir \
         --Verbose
 
-#    echo \
+    echo \
     ./compare-fit \
         --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-data_*subset-randomized.hdf5 \
@@ -186,7 +185,7 @@ do
         --tag random \
         --Verbose
 
-#    echo \
+    echo \
     ./compare-fit \
         --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-data_*random-randomized.hdf5 \
@@ -194,7 +193,7 @@ do
         --tag random-randomized \
         --Verbose
 
-#    echo \
+    echo \
     ./compare-fit \
         --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-data_*completely-randomized.hdf5 \
@@ -204,36 +203,42 @@ do
 
     #---
 
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-all.hdf5 \
         --output-dir $basedir \
         --tag all \
         --verbose
 
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset.hdf5 \
         --output-dir $basedir \
         --tag subset \
         --verbose
 
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset_subset-randomized.hdf5 \
         --output-dir $basedir \
         --tag subset-randomized \
         --verbose
 
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset_random.hdf5 \
         --output-dir $basedir \
         --tag random \
         --verbose
 
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset_random-randomized.hdf5 \
         --output-dir $basedir \
         --tag random-randomized \
         --verbose
 
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset_completely-randomized.hdf5 \
         --output-dir $basedir \
