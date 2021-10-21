@@ -26,33 +26,19 @@ from argparse import ArgumentParser
 
 FIGTYPES = ['png', 'pdf']
 
-#-------------------------------------------------
-
-parser = ArgumentParser(description=__doc__)
-
-parser.add_argument('hdf5', type=str)
-
-parser.add_argument('-v', '--verbose', default=False, action='store_true')
-
-parser.add_argument('-o', '--output-dir', default='.', type=str)
-parser.add_argument('-t', '--tag', default='.', type=str)
-
-args = parser.parse_args()
-
-args.output_dir = os.path.abspath(args.output_dir)
-if not os.path.exists(args.output_dir):
-    os.makedirs(args.output_dir)
-
-if args.tag:
-    args.tag = "_"+args.tag
-
-#-------------------------------------------------
+#------------------------
 
 LABELS = {
     'lambda0':'\hat{\lambda}_0',
     'a1':'\hat{a}_1',
     'a2':'\hat{a}_2',
     'a4':'\hat{a}_4',
+    'alpha1':r'\hat{\alpha}_1',
+    'beta1':r'\hat{\beta}_1',
+    'alpha2':r'\hat{\alpha}_2',
+    'beta2':r'\hat{\beta}_2',
+    'alpha4':r'\hat{\alpha}_4',
+    'beta4':r'\hat{\beta}_4',
 }
 
 #-------------------------------------------------
@@ -78,15 +64,62 @@ with uncertainty estimates
     """
     return monte_carlo_mean(x[N>thr]), monte_carlo_mean(x[N<=thr])
 
+
 #-------------------------------------------------
 
-# laod in data
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('hdf5', type=str)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='.', type=str)
+
+args = parser.parse_args()
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+#-------------------------------------------------
+
+# load in data
 if args.verbose:
     print('loading: '+args.hdf5)
 
 with h5py.File(args.hdf5, 'r') as obj:
     data = obj['mle_parameters'][:]
     true = obj['true_parameters'][:]
+
+#---
+
+data = dict((key, data[key][:]) for key in data.dtype.names)
+
+data['alpha1'] = data['a1']*np.cos(data['d1']) / data['lambda0']
+data['beta1'] = -data['a1']*np.sin(data['d1']) / data['lambda0']
+
+data['alpha2'] = data['a2']*np.cos(data['d2']) / data['lambda0']
+data['beta2'] = -data['a2']*np.sin(data['d2']) / data['lambda0']
+
+data['alpha4'] = data['a4']*np.cos(data['d4']) / data['lambda0']
+data['beta4'] = -data['a4']*np.sin(data['d4']) / data['lambda0']
+
+#---
+
+true = dict((key, true[key][:]) for key in true.dtype.names)
+
+true['alpha1'] = true['a1']*np.cos(true['d1']) / true['lambda0']
+true['beta1'] = -true['a1']*np.sin(true['d1']) / true['lambda0']
+
+true['alpha2'] = true['a2']*np.cos(true['d2']) / true['lambda0']
+true['beta2'] = -true['a2']*np.sin(true['d2']) / true['lambda0']
+
+true['alpha4'] = true['a4']*np.cos(true['d4']) / true['lambda0']
+true['beta4'] = -true['a4']*np.sin(true['d4']) / true['lambda0']
 
 #-------------------------------------------------
 
@@ -107,7 +140,7 @@ thresholds = true['Nseg'][0] - thresholds[::-1]
 for key in LABELS.keys():
     means[key] = means[key][::-1]
 
-for key in allmeans.keys():
+for key in means.keys():
 
     fig = plt.figure(figsize=(4,6))
 
@@ -176,7 +209,7 @@ for key in allmeans.keys():
 
     ### save
     for figtype in FIGTYPES:
-        figname = os.path.join(args.output_dir, 'plot-conditioned-means-%s.%s'%(key, figtype))
+        figname = os.path.join(args.output_dir, 'plot-conditioned-means-%s%s.%s'%(key, args.tag, figtype))
         print('saving: '+figname)
         fig.savefig(figname)
     plt.close(fig)

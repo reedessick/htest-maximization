@@ -30,7 +30,7 @@ HARMONICS["large"]="--harmonic 1 --harmonic 2 --harmonic 4"
 ### declare which signal models we want to run
 
 #BASEDIRS="null-124 small medium large"
-BASEDIRS="medium"
+BASEDIRS="null-124 small large"
 
 #-------------------------------------------------
 
@@ -145,6 +145,17 @@ do
             --Verbose \
             --histogram
 
+        # fit completely random subset
+#        echo \
+        ./fit-data \
+            $subset \
+            ${HARMONICS[$basedir]} \
+            --random-subset \
+            --output-dir $outdir \
+            --tag $tag-completely-randomized \
+            --Verbose \
+            --histogram
+
     done
 
     #--------------------
@@ -182,6 +193,54 @@ do
         --output-dir $basedir \
         --tag random-randomized \
         --Verbose
+
+#    echo \
+    ./compare-fit \
+        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-data_*completely-randomized.hdf5 \
+        --output-dir $basedir \
+        --tag completely-randomized \
+        --Verbose
+
+    #---
+
+    ./plot-conditioned-means \
+        ${basedir}/compare-fit-all.hdf5 \
+        --output-dir $basedir \
+        --tag all \
+        --verbose
+
+    ./plot-conditioned-means \
+        ${basedir}/compare-fit-subset.hdf5 \
+        --output-dir $basedir \
+        --tag subset \
+        --verbose
+
+    ./plot-conditioned-means \
+        ${basedir}/compare-fit-subset_subset-randomized.hdf5 \
+        --output-dir $basedir \
+        --tag subset-randomized \
+        --verbose
+
+    ./plot-conditioned-means \
+        ${basedir}/compare-fit-subset_random.hdf5 \
+        --output-dir $basedir \
+        --tag random \
+        --verbose
+
+    ./plot-conditioned-means \
+        ${basedir}/compare-fit-subset_random-randomized.hdf5 \
+        --output-dir $basedir \
+        --tag random-randomized \
+        --verbose
+
+    ./plot-conditioned-means \
+        ${basedir}/compare-fit-subset_completely-randomized.hdf5 \
+        --output-dir $basedir \
+        --tag completely-randomized \
+        --verbose
+
+    #---
 
     echo \
     ./compare-Hstat \

@@ -36,9 +36,12 @@ parser.add_argument('-N', '--num-bins', default=32, type=int,
 parser.add_argument('-m', '--harmonic', default=[], type=int, action='append',
     help='the number of harmonics to use when fitting light curves')
 
+parser.add_argument('--random-subset', default=False, action='store_true',
+    help='keep a random subset with the number of segments drawn independently of the data')
 parser.add_argument('--random-subset-same-num', default=False, action='store_true',
     help='if specified, select a random subset of segments and fit those \
 instead of only the selected ones')
+parser.add_argument('--keep-everything', default=False, action='store_true')
 
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
@@ -60,6 +63,10 @@ if not os.path.exists(args.output_dir):
 if args.tag:
     args.tag = "_"+args.tag
 
+assert not (args.random_subset and args.random_subset_same_num), \
+    'cannot specify both random-subset and random-subset-same-num'
+load_everything = args.random_subset or args.random_subset_same_num
+
 #-------------------------------------------------
 
 # load data
@@ -80,29 +87,37 @@ with h5py.File(args.hdf5, 'r') as obj:
         if args.Verbose:
             sys.stdout.write('\r    loading: '+name)
             sys.stdout.flush()
-        data.append( (group[name]['noise'][:], group[name]['signal'][:]) )
+        data.append( np.concatenate((group[name]['noise'][:], group[name]['signal'][:])) )
         Ntrials += 1
 
-    if args.random_subset_same_num: # load the rest of the data, downselect later
+    if load_everything: # load the rest of the data, downselect later
         group = obj['discarded_trials']
         for name in group.keys():
             if args.Verbose:
                 sys.stdout.write('\r    loading: '+name)
                 sys.stdout.flush()
-            data.append( (group[name]['noise'][:], group[name]['signal'][:]) )
+            data.append( np.concatenate((group[name]['noise'][:], group[name]['signal'][:])) )
 
 if args.Verbose:
     sys.stdout.write('\n')
     sys.stdout.flush()
 
-if args.random_subset_same_num:
+if args.keep_everything:
+    Ntrials = len(data)
+
+elif args.random_subset:
+    Ntrials = np.random.randint(len(data)) + 1
+    if args.verbose:
+        print('randomly selecting a subset of %d (randomly chosen) / %d trials'%(Ntrials, len(data)))
+    data = np.random.choice(data, size=Ntrials, replace=False)
+
+elif args.random_subset_same_num:
     # downselect to keep only Ntrials randomly selected
     if args.verbose:
-        print('randomly selecting a subset of %d / %d trials'%(Ntrials, len(data)))
-    np.random.shuffle(data)
-    data = data[:Ntrials]
+        print('randomly selecting a subset of %d (bsaed on Htest max) / %d trials'%(Ntrials, len(data)))
+    data = np.random.choice(data, size=Ntrials, replace=False)
 
-data = np.concatenate(tuple([np.concatenate(_) for _ in data])) # make this into a single array
+data = np.concatenate(tuple(data)) # make this into a single array
 
 if args.verbose:
     print('found %d data points from %d trials'%(len(data), Ntrials))
