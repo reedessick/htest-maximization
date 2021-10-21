@@ -36,6 +36,10 @@ parser.add_argument('-N', '--num-bins', default=32, type=int,
 parser.add_argument('-m', '--harmonic', default=[], type=int, action='append',
     help='the number of harmonics to use when fitting light curves')
 
+parser.add_argument('--random-subset-same-num', default=False, action='store_true',
+    help='if specified, select a random subset of segments and fit those \
+instead of only the selected ones')
+
 parser.add_argument('-v', '--verbose', default=False, action='store_true')
 parser.add_argument('-V', '--Verbose', default=False, action='store_true')
 
@@ -76,15 +80,29 @@ with h5py.File(args.hdf5, 'r') as obj:
         if args.Verbose:
             sys.stdout.write('\r    loading: '+name)
             sys.stdout.flush()
-        data.append( group[name]['noise'][:] )
-        data.append( group[name]['signal'][:] )
+        data.append( (group[name]['noise'][:], group[name]['signal'][:]) )
         Ntrials += 1
+
+    if args.random_subset_same_num: # load the rest of the data, downselect later
+        group = obj['discarded_trials']
+        for name in group.keys():
+            if args.Verbose:
+                sys.stdout.write('\r    loading: '+name)
+                sys.stdout.flush()
+            data.append( (group[name]['noise'][:], group[name]['signal'][:]) )
 
 if args.Verbose:
     sys.stdout.write('\n')
     sys.stdout.flush()
 
-data = np.concatenate(tuple(data)) # make this into a single array
+if args.random_subset_same_num:
+    # downselect to keep only Ntrials randomly selected
+    if args.verbose:
+        print('randomly selecting a subset of %d / %d trials'%(Ntrials, len(data)))
+    np.random.shuffle(data)
+    data = data[:Ntrials]
+
+data = np.concatenate(tuple([np.concatenate(_) for _ in data])) # make this into a single array
 
 if args.verbose:
     print('found %d data points from %d trials'%(len(data), Ntrials))

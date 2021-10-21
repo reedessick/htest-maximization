@@ -29,7 +29,8 @@ HARMONICS["large"]="--harmonic 1 --harmonic 2 --harmonic 4"
 
 ### declare which signal models we want to run
 
-BASEDIRS="null-124 small medium large"
+#BASEDIRS="null-124 small medium large"
+BASEDIRS="medium"
 
 #-------------------------------------------------
 
@@ -114,6 +115,16 @@ do
             --Verbose \
             --histogram
 
+#        echo \
+        ./fit-data \
+            $subset \
+            ${HARMONICS[$basedir]} \
+            --random-subset-same-num \
+            --output-dir $outdir \
+            --tag $tag-subset-randomized \
+            --Verbose \
+            --histogram
+
         # fit the random subset
         echo \
         ./fit-data \
@@ -121,6 +132,16 @@ do
             ${HARMONICS[$basedir]} \
             --output-dir $outdir \
             --tag $tag-random \
+            --Verbose \
+            --histogram
+
+#        echo \
+        ./fit-data \
+            $random \
+            ${HARMONICS[$basedir]} \
+            --random-subset-same-num \
+            --output-dir $outdir \
+            --tag $tag-random-randomized \
             --Verbose \
             --histogram
 
@@ -138,12 +159,28 @@ do
         --output-dir $basedir \
         --Verbose
 
+#    echo \
+    ./compare-fit \
+        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-data_*subset-randomized.hdf5 \
+        --output-dir $basedir \
+        --tag subset-randomized \
+        --Verbose
+
     echo \
     ./compare-fit \
         --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-data_*random.hdf5 \
         --output-dir $basedir \
         --tag random \
+        --Verbose
+
+#    echo \
+    ./compare-fit \
+        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-data_*random-randomized.hdf5 \
+        --output-dir $basedir \
+        --tag random-randomized \
         --Verbose
 
     echo \
