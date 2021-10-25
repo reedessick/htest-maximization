@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+
+"""dump MLE values from HDF5 into CSV
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import h5py
+import numpy as np
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('hdf5', type=str)
+parser.add_argument('csv', type=str)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+
+args = parser.parse_args()
+
+#-------------------------------------------------
+
+# laod data
+if args.verbose:
+    print('loading: '+args.hdf5)
+
+with h5py.File(args.hdf5, 'r') as obj:
+    data = obj['mle_parameters'][:]
+    true = obj['true_parameters'][:]
+
+# format data for CSV
+if args.verbose:
+    print('formatting data')
+
+combined = np.empty((len(data), len(data.dtype.names)+len(true.dtype.names)), dtype=float)
+header = []
+
+for ind, name in enumerate(data.dtype.names):
+    combined[:,ind] = data[name]
+    header.append(name)
+ind += 1
+
+for jnd, name in enumerate(true.dtype.names):
+    combined[:,ind+jnd] = true[name]
+    header.append('true_'+name)
+
+# write to csv
+if args.verbose:
+    print('saving: '+args.csv)
+
+np.savetxt(args.csv, combined, delimiter=',', header=','.join(header), comments='')

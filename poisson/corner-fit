@@ -1,0 +1,130 @@
+#!/bin/bash
+
+### a quick script to make some corner plots
+### Reed Essick (reed.essick@gmail.com)
+
+#-------------------------------------------------
+
+for basedir in "null-124" "small" "medium" "large"
+do
+
+for HDF5 in ${basedir}/compare-fit*hdf5
+do
+
+#    echo \
+    ./dump-mle \
+        --verbose \
+        $HDF5 \
+        $(echo $HDF5 | sed -e s,hdf5,csv,)
+
+done
+
+#-------------------------------------------------
+
+### plot everything together for reference
+
+kde-corner-samples \
+    Nseg lambda0 a1 a2 a4 \
+    --column-bandwidth Nseg 10 \
+    --column-range Nseg 0 1000 \
+    --column-label Nseg '$N_\mathrm{seg}^{(\mathrm{ret})}$' \
+    --column-truth Nseg 1000 \
+    --column-bandwidth lambda0 0.1 \
+    --column-range lambda0 47.75 51.50 \
+    --column-label lambda0 '$\hat{\lambda}_0$' \
+    --column-truth lambda0 51 \
+    --column-bandwidth a1 0.03 \
+    --column-range a1 -0.25 1.25 \
+    --column-label a1 '$\hat{a}_1$' \
+    --column-truth a1 0.3 \
+    --column-bandwidth a2 0.03 \
+    --column-range a2 -0.25 1.25 \
+    --column-label a2 '$\hat{a}_2$' \
+    --column-truth a2 0.5 \
+    --column-bandwidth a4 0.03 \
+    --column-range a4 -0.25 1.25 \
+    --column-label a4 '$\hat{a}_4$' \
+    --column-truth a4 0.2 \
+    --truth-color grey \
+    --mean1D \
+    --level 0.90 \
+    --samples all ${basedir}/compare-fit-all.csv \
+    --color all k \
+    --alpha all 0.75 \
+    --filled1D all \
+    --filled-alpha all 0.15 \
+    --samples ordered ${basedir}/compare-fit-subset.csv \
+    --color ordered r \
+    --alpha ordered 0.75 \
+    --samples unordered ${basedir}/compare-fit-subset_random.csv \
+    --color unordered b \
+    --alpha unordered 0.75 \
+    --num-points 101 \
+    --rotate \
+    --no-scatter \
+    --legend \
+    --output-dir ${basedir} \
+    --tag mle \
+    --dpi 500 \
+    --Verbose
+
+#------------------------
+
+### make plots conditioned on Nseg
+for NSEG in 1000 950 900 850 800 750 500
+do
+
+kde-corner-samples \
+    lambda0 a1 a2 a4 \
+    --column-bandwidth lambda0 0.1 \
+    --column-range lambda0 47.75 51.50 \
+    --column-label lambda0 '$\hat{\lambda}_0$' \
+    --column-truth lambda0 51 \
+    --column-bandwidth a1 0.03 \
+    --column-range a1 -0.25 1.25 \
+    --column-label a1 '$\hat{a}_1$' \
+    --column-truth a1 0.3 \
+    --column-bandwidth a2 0.03 \
+    --column-range a2 -0.25 1.25 \
+    --column-label a2 '$\hat{a}_2$' \
+    --column-truth a2 0.5 \
+    --column-bandwidth a4 0.03 \
+    --column-range a4 -0.25 1.25 \
+    --column-label a4 '$\hat{a}_4$' \
+    --column-truth a4 0.2 \
+    --truth-color grey \
+    --mean1D \
+    --level 0.90 \
+    --samples all ${basedir}/compare-fit-all.csv \
+    --color all k \
+    --alpha all 0.75 \
+    --filled1D all \
+    --filled-alpha all 0.15 \
+    --samples ordered ${basedir}/compare-fit-subset.csv \
+    --color ordered r \
+    --alpha ordered 0.75 \
+    --samples ordered-conditioned ${basedir}/compare-fit-subset.csv \
+    --color ordered-conditioned m \
+    --alpha ordered-conditioned 0.75 \
+    --condition ordered-conditioned Nseg $NSEG \
+    --condition-type ordered-conditioned Nseg point \
+    --samples unordered ${basedir}/compare-fit-subset_random.csv \
+    --color unordered b \
+    --alpha unordered 0.75 \
+    --samples unordered-conditioned ${basedir}/compare-fit-subset_random.csv \
+    --color unordered-conditioned c \
+    --alpha unordered-conditioned 0.75 \
+    --condition unordered-conditioned Nseg $NSEG \
+    --condition-type unordered-conditioned Nseg point \
+    --num-points 101 \
+    --rotate \
+    --no-scatter \
+    --legend --include-neff \
+    --output-dir ${basedir} \
+    --tag mle-Nseg${NSEG} \
+    --dpi 500 \
+    --Verbose
+
+done
+
+done
