@@ -56,8 +56,8 @@ do
         ### predict file names
 
         all="${outdir}/make-nonstationary-data_${tag}.hdf5"
-        subset="${outdir}/downselect-data_${tag}.hdf5"
-        random="${outdir}/downselect-data_random-${tag}.hdf5"
+        subset="${outdir}/downselect-nonstationary-data_${tag}.hdf5"
+        random="${outdir}/downselect-nonstationary-data_random-${tag}.hdf5"
 
         #----------------
 
@@ -79,7 +79,7 @@ do
         ### make basic plots summarizing the detection statistics and downselecting data
 
 #        echo \
-        ./downselect-data \
+        ./downselect-nonstationary-data \
             $all \
             "increasing_count" \
             --output-dir $outdir \
@@ -88,7 +88,7 @@ do
             --trajectory 
 
 #        echo \
-        ./downselect-data \
+        ./downselect-nonstationary-data \
             $all \
             "random" \
             --output-dir $outdir \
@@ -100,22 +100,9 @@ do
 
         ### actually fit the data and determine whether there are biases
 
-        echo "FIXME: the following has not yet been updated!"
-        exit 1
-
-
-
-
-
-
-
-
-
-
-
         # fit all data
-        echo \
-        ./fit-data \
+#        echo \
+        ./fit-nonstationary-data \
             $all \
             ${HARMONICS[$basedir]} \
             --output-dir $outdir \
@@ -124,8 +111,8 @@ do
             --histogram
 
         # fit the selected subset of data
-        echo \
-        ./fit-data \
+#        echo \
+        ./fit-nonstationary-data \
             $subset \
             ${HARMONICS[$basedir]} \
             --output-dir $outdir \
@@ -133,8 +120,8 @@ do
             --Verbose \
             --histogram
 
-        echo \
-        ./fit-data \
+#        echo \
+        ./fit-nonstationary-data \
             $subset \
             ${HARMONICS[$basedir]} \
             --random-subset-same-num \
@@ -144,8 +131,8 @@ do
             --histogram
 
         # fit the random subset
-        echo \
-        ./fit-data \
+#        echo \
+        ./fit-nonstationary-data \
             $random \
             ${HARMONICS[$basedir]} \
             --output-dir $outdir \
@@ -153,8 +140,8 @@ do
             --Verbose \
             --histogram
 
-        echo \
-        ./fit-data \
+#        echo \
+        ./fit-nonstationary-data \
             $random \
             ${HARMONICS[$basedir]} \
             --random-subset-same-num \
@@ -164,8 +151,8 @@ do
             --histogram
 
         # fit completely random subset
-        echo \
-        ./fit-data \
+#        echo \
+        ./fit-nonstationary-data \
             $subset \
             ${HARMONICS[$basedir]} \
             --random-subset \
@@ -181,41 +168,61 @@ do
     echo "-------------------------"
     echo "summarizing experiments"
 
+
+
+    echo "FIXME: the following has not yet been updated!"
+    exit 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #    echo \
     ./compare-fit \
-        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
-        --subset-data-hdf5 ${basedir}/*/fit-data_*subset.hdf5 \
+        --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*subset.hdf5 \
         --output-dir $basedir \
         --Verbose
 
 #    echo \
     ./compare-fit \
-        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
-        --subset-data-hdf5 ${basedir}/*/fit-data_*subset-randomized.hdf5 \
+        --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*subset-randomized.hdf5 \
         --output-dir $basedir \
         --tag subset-randomized \
         --Verbose
 
 #    echo \
     ./compare-fit \
-        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
-        --subset-data-hdf5 ${basedir}/*/fit-data_*random.hdf5 \
+        --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*random.hdf5 \
         --output-dir $basedir \
         --tag random \
         --Verbose
 
 #    echo \
     ./compare-fit \
-        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
-        --subset-data-hdf5 ${basedir}/*/fit-data_*random-randomized.hdf5 \
+        --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*random-randomized.hdf5 \
         --output-dir $basedir \
         --tag random-randomized \
         --Verbose
 
 #    echo \
     ./compare-fit \
-        --all-data-hdf5 ${basedir}/*/fit-data*all.hdf5 \
-        --subset-data-hdf5 ${basedir}/*/fit-data_*completely-randomized.hdf5 \
+        --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
+        --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*completely-randomized.hdf5 \
         --output-dir $basedir \
         --tag completely-randomized \
         --Verbose

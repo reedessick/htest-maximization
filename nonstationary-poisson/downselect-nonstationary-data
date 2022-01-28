@@ -156,7 +156,7 @@ if args.Verbose:
 #------------------------
 
 maxH_trial = np.argmax(hstat['Hstat'])
-outpath = os.path.join(args.output_dir, 'downselect-data%s.hdf5'%args.tag)
+outpath = os.path.join(args.output_dir, 'downselect-nonstationary-data%s.hdf5'%args.tag)
 if args.verbose:
     print('selected %d / %d trials\nwriting: %s'%(maxH_trial+1, Ntrials, outpath))
 
@@ -315,7 +315,7 @@ if args.trajectory:
 
     # save
     for figtype in FIGTYPES:
-        figname = os.path.join(args.output_dir, 'downselect-data%s.%s'%(args.tag, figtype))
+        figname = os.path.join(args.output_dir, 'downselect-nonstationary-data%s.%s'%(args.tag, figtype))
         if args.verbose:
             print('saving: '+figname)
         fig.savefig(figname)

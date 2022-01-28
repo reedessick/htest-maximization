@@ -143,7 +143,8 @@ if args.verbose:
     print('computing likelihood at true and MLE parameters')
 
 ### true process
-true_lambda0 = Ntrials * (attrs['noise_mean_differential_rate'] + attrs['signal_mean_differential_rate'])
+mean_lambda_noise = 0.5*(attrs['noise_mean_differential_rate_low'] + attrs['noise_mean_differential_rate_high'])
+true_lambda0 = Ntrials * (mean_lambda_noise + attrs['signal_mean_differential_rate'])
 true_ac_components = list(zip(
     attrs['periodic_signal_components']['harmonic'],
     Ntrials * attrs['periodic_signal_components']['amplitude'],
@@ -190,7 +191,7 @@ if args.Verbose:
 #-------------------------------------------------
 
 # store MLE results alongside simulation parameters
-outpath = os.path.join(args.output_dir, 'fit-data%s.hdf5'%args.tag)
+outpath = os.path.join(args.output_dir, 'fit-nonstationary-data%s.hdf5'%args.tag)
 if args.verbose:
     print('writing: '+outpath)
 
@@ -285,7 +286,7 @@ if args.histogram:
 
     # save
     for figtype in FIGTYPES:
-        figname = os.path.join(args.output_dir, 'fit-data%s.%s'%(args.tag, figtype))
+        figname = os.path.join(args.output_dir, 'fit-nonstationary-data%s.%s'%(args.tag, figtype))
         if args.verbose:
             print('saving: '+figname)
         fig.savefig(figname)
