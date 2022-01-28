@@ -1,0 +1,317 @@
+#!/usr/bin/env python
+
+"""a script that selects subsets of the data and summarizes the detection statistic
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+import sys
+
+import numpy as np
+import h5py
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from argparse import ArgumentParser
+
+#-------------------------------------------------
+
+FIGTYPES = ['png', 'pdf']
+KNOWN_ORDERING = ['increasing_count', 'random']
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('hdf5', type=str)
+
+parser.add_argument('ordering', type=str, help='must be one of: %s'%(', '.join(KNOWN_ORDERING)))
+
+parser.add_argument('--min-m', default=1, type=int)
+parser.add_argument('--max-m', default=20, type=int)
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+parser.add_argument('--trajectory', default=False, action='store_true',
+    help='plot the H-test statistic as a function of the amount of data included')
+
+args = parser.parse_args()
+
+assert args.ordering in KNOWN_ORDERING, 'ordering must be one of: %s'%(', '.join(KNOWN_ORDERING))
+
+args.verbose |= args.Verbose
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+#-------------------------------------------------
+
+# load data
+if args.verbose:
+    print('loading data from: '+args.hdf5)
+trials = []
+with h5py.File(args.hdf5, 'r') as obj:
+    # load parameters
+    group = obj['parameters']
+    attrs = dict(group.attrs.items())
+    attrs['periodic_signal_components'] = group['periodic_signal_components'][:]
+
+    # load data
+    group = obj['trials']
+    for name in group.keys():
+        if args.Verbose:
+            sys.stdout.write('\r    loading: '+name)
+            sys.stdout.flush()
+        noise = group[name]['noise'][:]
+        signal = group[name]['signal'][:]
+        trials.append((name, len(noise)+len(signal), dict(noise=noise, signal=signal)))
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+
+Ntrials = len(trials)
+
+if args.verbose:
+    print('found %d / %d trials'%(Ntrials, attrs['num_trials']))
+
+#------------------------
+
+if args.verbose:
+    print('ordering trials by: '+args.ordering)
+
+if args.ordering == 'increasing_count':
+    trials.sort(key=lambda x: x[1]) ### smallest counts first
+
+elif args.ordering == 'random':
+    np.random.shuffle(trials) ### randomize ordering
+
+else:
+    raise ValueError('ordering=%s not understood!'%args.ordering)
+
+#------------------------
+
+if args.verbose:
+    print('iteratively adding data to maximize H-test statistic')
+
+# make a holder for the H-test results
+hstat = np.empty(
+    Ntrials,
+    dtype=[('Z2', float), ('Hstat', float), ('optimal_harmonic', int), ('cumulative_count', int)],
+)
+hstat['cumulative_count'][:] = np.cumsum([_[1] for _ in trials])
+
+# instantiate counters for empirical fourier moments
+harmonics = np.arange(args.min_m, args.max_m+1) ### harmonics to consider in H-test
+cos = np.zeros(len(harmonics), dtype=float)
+sin = np.zeros(len(harmonics), dtype=float)
+N = 0
+
+Z = np.empty(len(harmonics), dtype=float) ### holder for Z^2_m
+H = np.empty(len(harmonics), dtype=float) ### holder for H-stat before we maximize over harmonics
+
+# now iterate over trials
+for trial, (_, n, datum) in enumerate(trials):
+    datum = np.concatenate((datum['noise'], datum['signal']))
+
+    if args.Verbose:
+        sys.stdout.write('\r    computing H-statistic including %d trials'%(trial+1))
+        sys.stdout.flush()
+
+    N += n ### update the number of data included
+
+    # update the harmonic estimates
+    for ind, m in enumerate(harmonics):
+        cos[ind] += np.sum(np.cos(m*datum))
+        sin[ind] += np.sum(np.sin(m*datum))
+
+    # compute Z^2_m
+    Z[:] = 2*np.cumsum(cos**2 + sin**2)/N ### 2*N*cumsum( (cos/N)**2 + (sin/N)**2 )
+
+    ### compute H-test up to and including this datum
+    H[:] = Z - 4*harmonics + 4 # as a function of harmonic
+    ind = np.argmax(H) # maximized over harmonic
+
+    hstat['Z2'][trial] = Z[ind]
+    hstat['Hstat'][trial] = H[ind]
+    hstat['optimal_harmonic'][trial] = harmonics[ind]
+
+if args.Verbose:
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+
+#------------------------
+
+maxH_trial = np.argmax(hstat['Hstat'])
+outpath = os.path.join(args.output_dir, 'downselect-data%s.hdf5'%args.tag)
+if args.verbose:
+    print('selected %d / %d trials\nwriting: %s'%(maxH_trial+1, Ntrials, outpath))
+
+### NOTE:
+# the following file format does not perfectly match what is produced by make-data
+# it adds a new dataset in a group called "statistics" describing the Htest maximization trajectories
+# It separates the trials into two sets:
+#   * "trials" is what is included within the Htest selection cut; this namespace matches make-data
+#   * "discarded_trials" contains the rest of the trials for later reference
+
+with h5py.File(outpath, 'w') as obj:
+
+    ### store basic attributes of experiment
+    group = obj.create_group('parameters')
+    group.create_dataset('periodic_signal_components', data=attrs.pop('periodic_signal_components'))
+    for key, val in attrs.items():
+        group.attrs.create(key, val)
+
+    ### store the statistics
+    group = obj.create_group('statistics')
+    group.create_dataset('htest', data=hstat)
+
+    ### iterate over trials that pass the selection cut
+    if args.Verbose:
+        print('storing %d retained trials'%(maxH_trial+1))
+
+    group = obj.create_group('trials')
+
+    for name, n, datum in trials[:maxH_trial+1]: ### record up to and including maxH_trial
+        if args.Verbose:
+            sys.stdout.write('\r    creating: %s'%name)
+            sys.stdout.flush()
+
+        grp = group.create_group(name)
+        grp.create_dataset('noise', data=datum['noise'])
+        grp.create_dataset('signal', data=datum['signal'])
+
+    if args.Verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    ### iterate over the rest of the trials
+    if args.Verbose:
+        print('storing %s remaining trials'%(Ntrials - (maxH_trial+1)))
+
+    group = obj.create_group('discarded_trials')
+
+    for name, n, datum in trials[maxH_trial+1:]: ### record the rest
+        if args.Verbose:
+            sys.stdout.write('\r    creating: %s'%name)
+            sys.stdout.flush()
+
+        grp = group.create_group(name)
+        grp.create_dataset('noise', data=datum['noise'])
+        grp.create_dataset('signal', data=datum['signal'])
+
+    if args.Verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+#-------------------------------------------------
+
+if args.trajectory:
+    if args.verbose:
+        print('plotting trajectory')
+
+    fig = plt.figure(figsize=(6,8))
+    ax = plt.subplot(4,1,1)
+    Ax = plt.subplot(4,1,2)
+    aX = plt.subplot(4,1,3)
+    AX = plt.subplot(4,1,4)
+
+    x = np.arange(Ntrials)+1 ### number of trials included
+
+    # plot H-test statistic
+    ax.plot(x, hstat['Hstat'])
+
+    # plot Z^2 statistic
+    Ax.plot(x, hstat['Z2'])
+
+    # plot optimal number of harmonics
+    aX.plot(x, hstat['optimal_harmonic'])
+
+    # plot amount of data included
+    AX.plot(x, hstat['cumulative_count'])
+
+    # decorate
+    for _ in fig.axes:
+        _.tick_params(direction='in')
+
+    diff = (x[-1]-x[0])*0.02
+    ax.set_xlim(xmin=1-diff, xmax=Ntrials+diff)
+    plt.setp(ax.get_xticklabels(), visible=False)
+
+    Ax.set_xlim(ax.get_xlim())
+    plt.setp(Ax.get_xticklabels(), visible=False)
+
+    aX.set_xlim(ax.get_xlim())
+    plt.setp(aX.get_xticklabels(), visible=False)
+
+    AX.set_xlim(ax.get_xlim())
+    AX.set_xlabel('number of trials included')
+
+    ax.set_ylabel('H-test\nstatistic')
+    Ax.set_ylabel('$Z^2$ statistic')
+    aX.set_ylabel('optimal number\nof harmonics')
+    AX.set_ylabel('number of\nsamples included')
+
+    AX.set_ylim(ymin=0)
+
+    plt.subplots_adjust(
+        left=0.20,
+        right=0.98,
+        bottom=0.10,
+        top = 0.98,
+        hspace=0.05,
+    )
+
+    # add location of maxima
+    kwargs = dict(linestyle='solid', color='grey', alpha=0.5)
+
+    xmin, xmax = ax.get_xlim()
+
+    ymin, ymax = ax.get_ylim()
+    ax.plot([xmin, xmax], [hstat['Hstat'][maxH_trial]]*2, **kwargs)
+    ax.plot([x[maxH_trial]]*2, [ymin, hstat['Hstat'][maxH_trial]], **kwargs)
+    ax.set_ylim(ymin=ymin, ymax=ymax)
+
+    ymin, ymax = Ax.get_ylim()
+    Ax.plot([xmin, xmax], [hstat['Z2'][maxH_trial]]*2, **kwargs)
+    Ax.plot([x[maxH_trial]]*2, [ymin, ymax], **kwargs)
+    Ax.set_ylim(ymin=ymin, ymax=ymax)
+
+    ymin, ymax = aX.get_ylim()
+    aX.plot([xmin, xmax], [hstat['optimal_harmonic'][maxH_trial]]*2, **kwargs)
+    aX.plot([x[maxH_trial]]*2, [ymin, ymax], **kwargs)
+    aX.set_ylim(ymin=ymin, ymax=ymax)
+
+    ymin, ymax = AX.get_ylim()
+    AX.plot([xmin, xmax], [hstat['cumulative_count'][maxH_trial]]*2, **kwargs)
+    AX.plot([x[maxH_trial]]*2, [ymin, ymax], **kwargs)
+    AX.set_ylim(ymin=ymin, ymax=ymax)
+
+    labels = []
+    for tick in AX.get_yticks():
+        if tick > 0:
+            exp = int(np.log10(tick))
+            labels.append(r'$%.1f \cdot 10^{%d}$'%(tick/10**exp, exp))
+        else:
+            labels.append('')
+    AX.set_yticklabels(labels)
+
+    # save
+    for figtype in FIGTYPES:
+        figname = os.path.join(args.output_dir, 'downselect-data%s.%s'%(args.tag, figtype))
+        if args.verbose:
+            print('saving: '+figname)
+        fig.savefig(figname)
+    plt.close(fig)
