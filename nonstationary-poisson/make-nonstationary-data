@@ -29,8 +29,10 @@ FIGTYPES = ['png', 'pdf']
 
 parser = ArgumentParser(description=__doc__)
 
-parser.add_argument('-n', '--noise-mean-differential-rate', type=float, default=100.0,
-    help='the DC component of the noise model. The expected number of events is 2*pi*mean_differential_rate')
+parser.add_argument('-n', '--noise-mean-differential-rate-bounds', nargs=2, type=float, default=(50, 150.0),
+    help='bounds for the distribution from which the DC component of the noise model is drawn. \
+Each segment is drawn with a different true noise rate ~ U(low, high), and the expected number of events is 2*pi*mean_differential_rate. \
+e.g. -n 50 150')
 
 parser.add_argument('-s', '--signal-mean-differential-rate', type=float, default=10.0,
     help='the DC component of the signal model. The expected number of events is 2*pi*mean_differential_rate')
@@ -64,6 +66,13 @@ if not os.path.exists(args.output_dir):
 if args.tag:
     args.tag = "_"+args.tag
 
+#------------------------
+
+### set up variables to update basic nonstationary noise model
+
+noise_mean_low, noise_mean_high = args.noise_mean_differential_rate_bounds
+noise_mean_diff = noise_mean_high - noise_mean_low
+
 #-------------------------------------------------
 
 if args.seed is not None:
@@ -75,8 +84,8 @@ if args.seed is not None:
 
 # construct signal and background models
 if args.verbose:
-    print('instantiating noise model')
-noise = utils.XrayProcess(args.noise_mean_differential_rate)
+    print('instantiating noise model; will update this within each trial')
+noise = utils.XrayProcess(0)
 
 if args.verbose:
     print('instantiating signal model')
@@ -84,7 +93,7 @@ signal = utils.XrayProcess(args.signal_mean_differential_rate, *args.periodic_si
 
 #-------------------------------------------------
 
-outpath = os.path.join(args.output_dir, 'make-data%s.hdf5'%args.tag)
+outpath = os.path.join(args.output_dir, 'make-nonstationary-data%s.hdf5'%args.tag)
 if args.verbose:
     print('generating data for %d trials'%args.num_trials)
     print('writing: '+outpath)
@@ -100,8 +109,14 @@ with h5py.File(outpath, 'w') as obj:
     ### store basic attributes of experiment
     group = obj.create_group('parameters')
 
-    group.attrs.create('noise_mean_differential_rate', args.noise_mean_differential_rate)
+    # noise model (bounded uniform distribution)
+    group.attrs.create('noise_mean_differential_rate_low', noise_mean_low)
+    group.attrs.create('noise_mean_differential_rate_high', noise_mean_high)
+
+    # signal model
     group.attrs.create('signal_mean_differential_rate', args.signal_mean_differential_rate)
+
+    # experimental parameters
     group.attrs.create('num_trials', args.num_trials)
     group.attrs.create('seed', args.seed if args.seed is not None else 'None')
 
@@ -125,6 +140,12 @@ with h5py.File(outpath, 'w') as obj:
             sys.stdout.flush()
 
         grp = group.create_group(name)
+
+        ### update noise process
+        noise.mean = noise_mean_low + (noise_mean_diff * np.random.random())
+        grp.attrs.create('noise_mean_differential_rate', noise.mean) ### record this
+
+        ### draw variables
         grp.create_dataset('noise', data=noise.draw())
         grp.create_dataset('signal', data=signal.draw())
 
@@ -149,25 +170,66 @@ if args.histogram:
     ax = plt.subplot(2,1,1)
     AX = plt.subplot(2,1,2)
 
-    # plot cumulative histograms
-    ax.plot(noise.phase_grid, noise.phase_cdf*noise.mean_count*args.num_trials, color='c', alpha=0.5, label='noise')
-    ax.fill_between(p, np.zeros_like(p), n, color='b', alpha=0.25)
+    ### plot noise model
+    for label, mean, filled, color in [
+            ('noise (min)', noise_mean_low, False, 'g'),
+            ('noise (max)', noise_mean_high, False, 'y'),
+            ('noise (mean)', 0.5*(noise_mean_low + noise_mean_high), True, 'b'),
+        ]:
 
-    ax.plot(signal.phase_grid, signal.phase_cdf*signal.mean_count*args.num_trials, color='m', alpha=0.5, label='signal')
-    ax.fill_between(p, np.zeros_like(p), s, color='r', alpha=0.25)
+        noise.mean = mean
+
+        # plot cumulative histograms
+        ax.plot(
+            noise.phase_grid,
+            noise.phase_cdf*noise.mean_count*args.num_trials,
+            color=color,
+            alpha=0.5,
+            label=label,
+        )
+
+        if filled:
+            ax.fill_between(p, np.zeros_like(p), n, color=color, alpha=0.25)
+
+        # plot differential histograms
+        AX.plot(
+            noise.phase_grid,
+            noise.phase_pdf*noise.mean_count*args.num_trials,
+            color=color,
+            alpha=0.5,
+            label=label,
+        )
+
+        if filled:
+            x = 0.5*(p[:-1]+p[1:])
+            y = np.diff(n) / (p[1]-p[0])
+            X = []
+            Y = []
+            for plow, phigh, y in zip(p[:-1], p[1:], y):
+                X += [plow, phigh]
+                Y += [y]*2
+            AX.fill_between(X, np.zeros_like(X), Y, color=color, alpha=0.25)
+
+    ### plot signal model
+    color = 'r'
+
+    ax.plot(
+        signal.phase_grid,
+        signal.phase_cdf*signal.mean_count*args.num_trials,
+        color=color,
+        alpha=0.5,
+        label='signal',
+    )
+    ax.fill_between(p, np.zeros_like(p), s, color=color, alpha=0.25)
 
     # plot differential histograms
-    AX.plot(noise.phase_grid, noise.phase_pdf*noise.mean_count*args.num_trials, color='c', alpha=0.5, label='noise')
-    x = 0.5*(p[:-1]+p[1:])
-    y = np.diff(n) / (p[1]-p[0])
-    X = []
-    Y = []
-    for plow, phigh, y in zip(p[:-1], p[1:], y):
-        X += [plow, phigh]
-        Y += [y]*2
-    AX.fill_between(X, np.zeros_like(X), Y, color='b', alpha=0.25)
-
-    AX.plot(signal.phase_grid, signal.phase_pdf*signal.mean_count*args.num_trials, color='m', alpha=0.5, label='signal')
+    AX.plot(
+        signal.phase_grid,
+        signal.phase_pdf*signal.mean_count*args.num_trials,
+        color='m',
+        alpha=0.5,
+        label='signal',
+    )
     y = np.diff(s) / (p[1]-p[0])
     Y = []
     for y in y:
@@ -205,7 +267,7 @@ if args.histogram:
 
     # save
     for figtype in FIGTYPES:
-        figname = os.path.join(args.output_dir, 'make-data%s.%s'%(args.tag, figtype))
+        figname = os.path.join(args.output_dir, 'make-nonstationary-data%s.%s'%(args.tag, figtype))
         if args.verbose:
             print('saving: '+figname)
         fig.savefig(figname)

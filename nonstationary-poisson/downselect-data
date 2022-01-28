@@ -76,7 +76,8 @@ with h5py.File(args.hdf5, 'r') as obj:
             sys.stdout.flush()
         noise = group[name]['noise'][:]
         signal = group[name]['signal'][:]
-        trials.append((name, len(noise)+len(signal), dict(noise=noise, signal=signal)))
+        params = dict(group.attrs.items())
+        trials.append((name, len(noise)+len(signal), dict(noise=noise, signal=signal), params))
 
 if args.Verbose:
     sys.stdout.write('\n')
@@ -123,7 +124,7 @@ Z = np.empty(len(harmonics), dtype=float) ### holder for Z^2_m
 H = np.empty(len(harmonics), dtype=float) ### holder for H-stat before we maximize over harmonics
 
 # now iterate over trials
-for trial, (_, n, datum) in enumerate(trials):
+for trial, (_, n, datum, params) in enumerate(trials):
     datum = np.concatenate((datum['noise'], datum['signal']))
 
     if args.Verbose:
@@ -184,12 +185,14 @@ with h5py.File(outpath, 'w') as obj:
 
     group = obj.create_group('trials')
 
-    for name, n, datum in trials[:maxH_trial+1]: ### record up to and including maxH_trial
+    for name, n, datum, params in trials[:maxH_trial+1]: ### record up to and including maxH_trial
         if args.Verbose:
             sys.stdout.write('\r    creating: %s'%name)
             sys.stdout.flush()
 
         grp = group.create_group(name)
+        for k, v in params.items():
+            grp.attrs.create(k, v)
         grp.create_dataset('noise', data=datum['noise'])
         grp.create_dataset('signal', data=datum['signal'])
 
@@ -203,12 +206,14 @@ with h5py.File(outpath, 'w') as obj:
 
     group = obj.create_group('discarded_trials')
 
-    for name, n, datum in trials[maxH_trial+1:]: ### record the rest
+    for name, n, datum, params in trials[maxH_trial+1:]: ### record the rest
         if args.Verbose:
             sys.stdout.write('\r    creating: %s'%name)
             sys.stdout.flush()
 
         grp = group.create_group(name)
+        for k, v in params.items():
+            grp.attrs.create(k, v)
         grp.create_dataset('noise', data=datum['noise'])
         grp.create_dataset('signal', data=datum['signal'])
 

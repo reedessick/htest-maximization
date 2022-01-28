@@ -55,13 +55,50 @@ do
 
         ### predict file names
 
-        all="${outdir}/make-data_${tag}.hdf5"
+        all="${outdir}/make-nonstationary-data_${tag}.hdf5"
         subset="${outdir}/downselect-data_${tag}.hdf5"
         random="${outdir}/downselect-data_random-${tag}.hdf5"
 
         #----------------
 
         ### generate synthetic data realizations
+
+#        echo \
+        ./make-nonstationary-data \
+            --output-dir $outdir \
+            --tag $tag \
+            --seed $seed \
+            --num-trials 1000 \
+            --noise-mean-differential-rate-bounds 50.0 150.0 \
+            ${SIGNAL_MODEL[$basedir]} \
+            --Verbose \
+            --histogram
+
+        #----------------
+
+        ### make basic plots summarizing the detection statistics and downselecting data
+
+#        echo \
+        ./downselect-data \
+            $all \
+            "increasing_count" \
+            --output-dir $outdir \
+            --tag $tag \
+            --Verbose \
+            --trajectory 
+
+#        echo \
+        ./downselect-data \
+            $all \
+            "random" \
+            --output-dir $outdir \
+            --tag random-$tag \
+            --Verbose \
+            --trajectory 
+
+        #----------------
+
+        ### actually fit the data and determine whether there are biases
 
         echo "FIXME: the following has not yet been updated!"
         exit 1
@@ -75,78 +112,6 @@ do
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        echo \
-        ./make-data \
-            --output-dir $outdir \
-            --tag $tag \
-            --seed $seed \
-            --num-trials 1000 \
-            --noise-mean-differential-rate 50.0 \
-            ${SIGNAL_MODEL[$basedir]} \
-            --Verbose \
-            --histogram
-
-        #----------------
-
-        ### make basic plots summarizing the detection statistics and downselecting data
-
-        echo \
-        ./downselect-data \
-            $all \
-            "increasing_count" \
-            --output-dir $outdir \
-            --tag $tag \
-            --Verbose \
-            --trajectory 
-
-        echo \
-        ./downselect-data \
-            $all \
-            "random" \
-            --output-dir $outdir \
-            --tag random-$tag \
-            --Verbose \
-            --trajectory 
-
-        #----------------
-
-        ### actually fit the data and determine whether there are biases
 
         # fit all data
         echo \
