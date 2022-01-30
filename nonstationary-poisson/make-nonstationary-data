@@ -110,6 +110,7 @@ with h5py.File(outpath, 'w') as obj:
     group = obj.create_group('parameters')
 
     # noise model (bounded uniform distribution)
+    group.attrs.create('noise_mean_differential_rate', 0.5*(noise_mean_low+noise_mean_high))
     group.attrs.create('noise_mean_differential_rate_low', noise_mean_low)
     group.attrs.create('noise_mean_differential_rate_high', noise_mean_high)
 

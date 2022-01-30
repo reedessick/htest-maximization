@@ -13,12 +13,14 @@ declare -A NUM
 # measure the null distribution when fitting for harmonics=(1,2,4)
 SIGNAL_MODEL["null-124"]="--signal-mean-differential-rate 0.0 --periodic-signal-component 1 0.0 0.0 --periodic-signal-component 2 0.0 0.0 --periodic-signal-component 4 0.0 0.75"
 HARMONICS["null-124"]="--harmonic 1 --harmonic 2 --harmonic 4"
-NUM["null-124"]=1000
+#NUM["null-124"]=1000
+NUM["null-124"]=100
 
 # inject a very weak signal with harmonics=(1,2,4)
 SIGNAL_MODEL["small"]="--signal-mean-differential-rate 0.1 --periodic-signal-component 1 0.03 0.0 --periodic-signal-component 2 0.05 0.0 --periodic-signal-component 4 0.02 0.75"
 HARMONICS["small"]="--harmonic 1 --harmonic 2 --harmonic 4"
-NUM["small"]=1000
+#NUM["small"]=1000
+NUM["small"]=100
 
 # inject a weak signal with harmonics=(1,2,4)
 SIGNAL_MODEL["medium"]="--signal-mean-differential-rate 1.0 --periodic-signal-component 1 0.3 0.0 --periodic-signal-component 2 0.5 0.0 --periodic-signal-component 4 0.2 0.75"
@@ -28,14 +30,15 @@ NUM["medium"]=4000
 # inject a large signal with harmonics=(1,2,4)
 SIGNAL_MODEL["large"]="--signal-mean-differential-rate 10.0 --periodic-signal-component 1 3.0 0.0 --periodic-signal-component 2 5.0 0.0 --periodic-signal-component 4 2.0 0.75"
 HARMONICS["large"]="--harmonic 1 --harmonic 2 --harmonic 4"
-NUM["large"]=1000
+#NUM["large"]=1000
+NUM["large"]=100
 
 #------------------------
 
 ### declare which signal models we want to run
 
-BASEDIRS="null-124 small medium large"
-#BASEDIRS="medium"
+#BASEDIRS="null-124 small medium large"
+BASEDIRS="medium"
 
 #-------------------------------------------------
 
@@ -63,13 +66,13 @@ do
 
         ### generate synthetic data realizations
 
-#        echo \
+        echo \
         ./make-nonstationary-data \
             --output-dir $outdir \
             --tag $tag \
             --seed $seed \
             --num-trials 1000 \
-            --noise-mean-differential-rate-bounds 50.0 150.0 \
+            --noise-mean-differential-rate-bounds 25.0 75.0 \
             ${SIGNAL_MODEL[$basedir]} \
             --Verbose \
             --histogram
@@ -78,7 +81,7 @@ do
 
         ### make basic plots summarizing the detection statistics and downselecting data
 
-#        echo \
+        echo \
         ./downselect-nonstationary-data \
             $all \
             "increasing_count" \
@@ -87,7 +90,7 @@ do
             --Verbose \
             --trajectory 
 
-#        echo \
+        echo \
         ./downselect-nonstationary-data \
             $all \
             "random" \
@@ -101,7 +104,7 @@ do
         ### actually fit the data and determine whether there are biases
 
         # fit all data
-#        echo \
+        echo \
         ./fit-nonstationary-data \
             $all \
             ${HARMONICS[$basedir]} \
@@ -111,7 +114,7 @@ do
             --histogram
 
         # fit the selected subset of data
-#        echo \
+        echo \
         ./fit-nonstationary-data \
             $subset \
             ${HARMONICS[$basedir]} \
@@ -120,7 +123,7 @@ do
             --Verbose \
             --histogram
 
-#        echo \
+        echo \
         ./fit-nonstationary-data \
             $subset \
             ${HARMONICS[$basedir]} \
@@ -131,7 +134,7 @@ do
             --histogram
 
         # fit the random subset
-#        echo \
+        echo \
         ./fit-nonstationary-data \
             $random \
             ${HARMONICS[$basedir]} \
@@ -140,7 +143,7 @@ do
             --Verbose \
             --histogram
 
-#        echo \
+        echo \
         ./fit-nonstationary-data \
             $random \
             ${HARMONICS[$basedir]} \
@@ -151,7 +154,7 @@ do
             --histogram
 
         # fit completely random subset
-#        echo \
+        echo \
         ./fit-nonstationary-data \
             $subset \
             ${HARMONICS[$basedir]} \
@@ -168,31 +171,12 @@ do
     echo "-------------------------"
     echo "summarizing experiments"
 
-
-
-    echo "FIXME: the following has not yet been updated!"
-    exit 1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #    echo \
     ./compare-fit \
         --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*subset.hdf5 \
         --output-dir $basedir \
+        --tag nonstationary \
         --Verbose
 
 #    echo \
@@ -200,7 +184,7 @@ do
         --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*subset-randomized.hdf5 \
         --output-dir $basedir \
-        --tag subset-randomized \
+        --tag subset-randomized-nonstationary \
         --Verbose
 
 #    echo \
@@ -208,7 +192,7 @@ do
         --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*random.hdf5 \
         --output-dir $basedir \
-        --tag random \
+        --tag random-nonstationary \
         --Verbose
 
 #    echo \
@@ -216,7 +200,7 @@ do
         --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*random-randomized.hdf5 \
         --output-dir $basedir \
-        --tag random-randomized \
+        --tag random-randomized-nonstationary \
         --Verbose
 
 #    echo \
@@ -224,66 +208,67 @@ do
         --all-data-hdf5 ${basedir}/*/fit-nonstationary-data*all.hdf5 \
         --subset-data-hdf5 ${basedir}/*/fit-nonstationary-data_*completely-randomized.hdf5 \
         --output-dir $basedir \
-        --tag completely-randomized \
+        --tag completely-randomized-nonstationary \
         --Verbose
 
     #---
 
-#    echo \
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-all.hdf5 \
         --output-dir $basedir \
-        --tag all \
+        --tag all-nonstationary \
         --verbose
 
-#    echo \
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset.hdf5 \
         --output-dir $basedir \
-        --tag subset \
+        --tag subset-nonstationary \
         --verbose
 
-#    echo \
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset_subset-randomized.hdf5 \
         --output-dir $basedir \
-        --tag subset-randomized \
+        --tag subset-randomized-nonstationary \
         --verbose
 
-#    echo \
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset_random.hdf5 \
         --output-dir $basedir \
-        --tag random \
+        --tag random-nonstationary \
         --verbose
 
-#    echo \
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset_random-randomized.hdf5 \
         --output-dir $basedir \
-        --tag random-randomized \
+        --tag random-randomized-nonstationary \
         --verbose
 
-#    echo \
+    echo \
     ./plot-conditioned-means \
         ${basedir}/compare-fit-subset_completely-randomized.hdf5 \
         --output-dir $basedir \
-        --tag completely-randomized \
+        --tag completely-randomized-nonstationary \
         --verbose
 
     #---
 
 #    echo \
     ./compare-Hstat \
-        --hdf5 ${basedir}/*/downselect-data*.hdf5 \
+        --hdf5 ${basedir}/*/downselect-nonstationary-data*.hdf5 \
         --output-dir $basedir \
+        --tag nonstationary \
         --verbose
 
 #    echo \
     ./compare-Hstat \
-        --hdf5 ${basedir}/*/downselect-data_random*.hdf5 \
+        --hdf5 ${basedir}/*/downselect-nonstationary-data_random*.hdf5 \
         --output-dir $basedir \
-        --tag random \
+        --tag random-nonstationary \
         --verbose
 
 done
