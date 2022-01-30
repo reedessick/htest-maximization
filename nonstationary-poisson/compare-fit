@@ -1,0 +1,216 @@
+#!/usr/bin/env python
+
+"""a script to compare the distribution of parameters extracted from realizations of our Poisson model
+"""
+__author__ = "Reed Essick (reed.essick@gmail.com)"
+
+#-------------------------------------------------
+
+import os
+import sys
+
+import numpy as np
+import h5py
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
+from argparse import ArgumentParser
+
+### non-standard libraries
+import corner
+
+#-------------------------------------------------
+
+FIGTYPES = ['png', 'pdf']
+
+FIGSIZE_SMALL = (15, 15)
+FIGSIZE_LARGE = (20, 20)
+
+LEGEND_LOC = 0.75
+LEGEND_DIF = 0.10
+
+#-------------------------------------------------
+
+parser = ArgumentParser(description=__doc__)
+
+parser.add_argument('--all-data-hdf5', type=str, nargs='+', required=True,
+    help='paths to HDF5 fit-data files that used all data in each realization. \
+eg: "--all-data-hdf5 path [path ...]"')
+
+parser.add_argument('--subset-data-hdf5', type=str, nargs='+', required=True,
+    help='paths to HDF5 fit-data files that a subset of data in each realization. \
+eg: "--subset-data-hdf5 path [path ...]"')
+
+parser.add_argument('-v', '--verbose', default=False, action='store_true')
+parser.add_argument('-V', '--Verbose', default=False, action='store_true')
+
+parser.add_argument('-o', '--output-dir', default='.', type=str)
+parser.add_argument('-t', '--tag', default='', type=str)
+
+args = parser.parse_args()
+
+datasets = [ # (label, color, include_ntrials, paths)
+    ('all', 'k', False, args.all_data_hdf5),
+    ('subset', 'r', True, args.subset_data_hdf5),
+]
+
+args.verbose |= args.Verbose
+
+args.output_dir = os.path.abspath(args.output_dir)
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
+
+if args.tag:
+    args.tag = "_"+args.tag
+
+#-------------------------------------------------
+
+fig = plt.figure(figsize=FIGSIZE_LARGE)
+
+for ind, (label, color, include_ntrials, paths) in enumerate(datasets):
+
+    # load data
+    if args.verbose:
+        print('loading %d paths for %s'%(len(paths), label))
+
+    true_params = []
+    mle_params = []
+
+    labels = ['approx $\log\mathcal{L}$', '$\log\mathcal{L}$', '$\lambda_0$']
+    dtype = [('approxLogLike', float), ('LogLike', float), ('lambda0', float)]
+
+    harmonics = None
+
+    for path in paths:
+        if args.Verbose:
+            sys.stdout.write('\r    loading: %s'%path)
+            sys.stdout.flush()
+
+        with h5py.File(path, 'r') as obj:
+            # load true parameters
+            group = obj['parameters']
+
+            approx_loglike = group.attrs['approximate_loglikelihood(true_params)']
+            loglike = group.attrs['loglikelihood(true_params)']
+            ntrials = group.attrs['num_trials']
+            lambda0 = group.attrs['noise_mean_differential_rate'] + group.attrs['signal_mean_differential_rate']
+            ac_comp = group['periodic_signal_components'][:]            
+
+            datum = [approx_loglike, loglike, lambda0]
+            for m, a, d in ac_comp:
+                datum += [a, d]
+            datum += [ntrials]
+
+            if harmonics is None: # define labels and harmonics
+                harmonics = [m for m, _, _ in ac_comp]
+                for m in harmonics:
+                    labels += ['$a_%d$'%m, '$\delta_%d$'%m]
+                    dtype += [('a%d'%m, float), ('d%d'%m, float)]
+                labels.append('$N_\mathrm{seg}$')
+                dtype.append(('Nseg', int))
+
+            else: # make sure we have consistent harmonics
+                assert len(ac_comp)==len(harmonics), 'different numbers of harmonics!'
+                assert all([M==m for M, (m, _, _) in zip(harmonics, ac_comp)]), 'different harmonic ordering!'
+
+            true_params.append(datum)
+
+            # load mle parameters
+            group = obj['maximum-likelihood-estimate']
+
+            approx_loglike = group.attrs['approximate_loglikelihood(mle_params)']
+            loglike = group.attrs['loglikelihood(mle_params)']
+            ntrials = group.attrs['num_trials']
+            lambda0 = group.attrs['mean_differential_rate']
+            ac_comp = group['periodic_signal_components'][:]       
+
+            # make sure we have consistent harmonics
+            assert len(ac_comp)==len(harmonics), 'different numbers of harmonics!'
+            assert all([M==m for M, (m, _, _) in zip(harmonics, ac_comp)]), 'different harmonic ordering!'
+
+            datum = [approx_loglike, loglike, lambda0]
+            for m, a, d in ac_comp:
+                datum += [a, d]
+            datum.append(ntrials)
+
+            mle_params.append(datum)
+
+    if args.Verbose:
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    true_params = np.array(true_params)
+    mle_params = np.array(mle_params)
+
+    # save the results!
+    outpath = os.path.join(args.output_dir, 'compare-fit-%s%s.hdf5'%(label, args.tag))
+    if args.verbose:
+        print('writing statistics to: '+outpath)
+    with h5py.File(outpath, 'w') as obj:
+        obj.create_dataset('true_parameters', data=np.array([tuple(_) for _ in true_params], dtype=dtype))
+        obj.create_dataset('mle_parameters', data=np.array([tuple(_) for _ in mle_params], dtype=dtype))
+
+    #--------------------
+
+    if args.verbose:
+        print('plotting distributions of MLE parameters')
+
+    hist_kwargs = {'density':True}
+
+    FIG = plt.figure(figsize=FIGSIZE_SMALL)
+
+    if include_ntrials:
+        corner.corner(
+            mle_params[:,2:],
+            truths=true_params[0,2:], ### NOTE: assumes all realizations have same true parameters
+            labels=labels[2:],
+            color=color,
+            hist_kwargs=hist_kwargs,
+            fig=FIG,
+        )
+
+    else:
+        corner.corner(
+            mle_params[:,2:-1],
+            truths=true_params[0,2:-1], ### NOTE: assumes all realizations have same true parameters
+            labels=labels[2:-1],
+            color=color,
+            hist_kwargs=hist_kwargs,
+            fig=FIG,
+        )
+
+    # save
+    for figtype in FIGTYPES:
+        figname = os.path.join(args.output_dir, 'compare-fit-%s%s.%s'%(label, args.tag, figtype))
+        if args.verbose:
+            print('saving: '+figname)
+        FIG.savefig(figname)
+    plt.close(FIG)
+
+    #--------------------
+
+    # add deviations to big corner plot
+    if args.verbose:
+        print('plotting deviations')
+    deviations = mle_params - true_params
+
+    fig = corner.corner(
+         deviations[:,:-1],
+         labels=['$\Delta$'+_ for _ in labels],
+         color=color,
+         hist_kwargs=hist_kwargs,
+         fig=fig,
+    )
+
+    # add a legend
+    fig.text(LEGEND_LOC, LEGEND_LOC - ind*LEGEND_DIF, label, ha='right', va='top', color=color)
+
+# save
+for figtype in FIGTYPES:
+    figname = os.path.join(args.output_dir, 'compare-fit%s.%s'%(args.tag, figtype))
+    if args.verbose:
+        print('saving: '+figname)
+    fig.savefig(figname)
+plt.close(fig)
